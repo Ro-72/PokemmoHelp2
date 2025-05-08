@@ -1,0 +1,111 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  position: relative;
+  z-index: 10;
+  transform: translateY(-100%); /* Start off-screen */
+  animation: dropDown 1.5s ease-out forwards; /* Apply the animation */
+}
+
+@keyframes dropDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.App-link {
+  color: #61dafb;
+  margin: 0 10px;
+  text-decoration: none;
+}
+
+.App-link:hover {
+  text-decoration: underline;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.recommendation-section {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.recommendation-icon {
+  font-size: 20px;
+  color: #61dafb;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.recommendation-popup {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -20%);
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  color: #000;
+  z-index: 1000;
+}
+
+.recommendation-popup h4 {
+  margin-top: 0;
+}
+
+.recommendation-popup ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.recommendation-popup li {
+  margin-bottom: 5px;
+}
+
+.close-popup {
+  margin-top: 10px;
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.smallpopup {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pokemon-info {
+  font-size: 8px;
+}

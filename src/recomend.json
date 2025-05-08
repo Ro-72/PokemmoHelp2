@@ -1,0 +1,381 @@
+{
+  "hp": [
+    {
+      "pokemon": "Marill",
+      "location": "Route 114",
+      "method": "Surf",
+      "region": "Hoenn",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Dunsparce",
+      "location": "Three Isle Port",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Wobbuffet, Lickitung",
+      "location": "Cerulean Cave Entrance",
+      "method": "—",
+      "region": "Kanto",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Lickitung",
+      "location": "Route 44",
+      "method": "Grass",
+      "region": "Johto",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Loudred",
+      "location": "Desert Underpass",
+      "method": "—",
+      "region": "Hoenn",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Hariyama",
+      "location": "Victory Road",
+      "method": "—",
+      "region": "Hoenn",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Sealeo",
+      "location": "Route 230",
+      "method": "Surf",
+      "region": "Sinnoh",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Stunfisk",
+      "location": "Icirrus City",
+      "method": "Surf in Pond",
+      "region": "Unova",
+      "encounter": "100% HP EV Encounter"
+    },
+    {
+      "pokemon": "Amoonguss",
+      "location": "Route 10",
+      "method": "Dark Grass",
+      "region": "Unova",
+      "encounter": "100% HP EV Encounter"
+    }
+  ],
+  "attack": [
+    {
+      "pokemon": "Rhydon",
+      "location": "Victory Road",
+      "method": "Cave",
+      "region": "Sinnoh",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Paras",
+      "location": "Mt. Moon B1F",
+      "method": "Cave",
+      "region": "Kanto",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Nidorino",
+      "location": "Route 15",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Primeape, Arbok",
+      "location": "Route 23",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Kingler, Machoke",
+      "location": "Cliff Cave",
+      "method": "Cave",
+      "region": "Johto",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Ariados, Banette",
+      "location": "Sky Pillar",
+      "method": "Cave",
+      "region": "Hoenn",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Bouffalant",
+      "location": "Route 10",
+      "method": "Grass",
+      "region": "Unova",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Tranquill",
+      "location": "Route 12",
+      "method": "Dark Grass",
+      "region": "Unova",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Bibarel",
+      "location": "Sendoff Spring",
+      "method": "Grass",
+      "region": "Sinnoh",
+      "encounter": "100% Atk EV Encounter"
+    },
+    {
+      "pokemon": "Machoke",
+      "location": "Route 211",
+      "method": "Grass",
+      "region": "Sinnoh",
+      "encounter": "100% Atk EV Encounter"
+    }
+  ],
+  "defense": [
+    {
+      "pokemon": "Pelipper",
+      "location": "Undella Bay",
+      "method": "Surf",
+      "region": "Unova",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Sandslash, Marowak",
+      "location": "Victory Road",
+      "method": "—",
+      "region": "Kanto",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Tangela",
+      "location": "Route 21",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Slowbro",
+      "location": "Cape Brink, Two Island",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Metapod, Kakuna",
+      "location": "Pattern Bush, Six Island",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Sandslash",
+      "location": "Route 26",
+      "method": "Grass",
+      "region": "Johto",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Pelipper",
+      "location": "Ever Grande City Entrance",
+      "method": "Surf",
+      "region": "Hoenn",
+      "encounter": "100% Def EV Encounter"
+    },
+    {
+      "pokemon": "Pelipper",
+      "location": "Route 222",
+      "method": "Surf",
+      "region": "Sinnoh",
+      "encounter": "100% Def EV Encounter"
+    }
+  ],
+  "spAttack": [
+    {
+      "pokemon": "Golduck",
+      "location": "Cape Brink",
+      "method": "Surf",
+      "region": "Kanto",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Flaaffy, Girafarig",
+      "location": "Route 43",
+      "method": "Grass",
+      "region": "Johto",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Gloom",
+      "location": "Route 119",
+      "method": "Grass",
+      "region": "Hoenn",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Golduck",
+      "location": "Resort Area",
+      "method": "Surf",
+      "region": "Sinnoh",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Duosion",
+      "location": "Route 9",
+      "method": "Grass",
+      "region": "Unova",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Heatmor",
+      "location": "Victory Road Outside",
+      "method": "Grass",
+      "region": "Unova",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Litwick",
+      "location": "Celestial Tower",
+      "method": "—",
+      "region": "Unova",
+      "encounter": "100% Sp Atk EV Encounter"
+    },
+    {
+      "pokemon": "Golduck",
+      "location": "Route 11",
+      "method": "Grass",
+      "region": "Unova",
+      "encounter": "100% Sp Atk EV Encounter"
+    }
+  ],
+  "spDefense": [
+    {
+      "pokemon": "Tentacruel",
+      "location": "Seven Island",
+      "method": "Surf",
+      "region": "Kanto",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Dewgong",
+      "location": "Icefall Cave, Four Island",
+      "method": "—",
+      "region": "Kanto",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Tentacruel",
+      "location": "Route 26",
+      "method": "Surf",
+      "region": "Johto",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Tentacruel",
+      "location": "Battle Frontier",
+      "method": "Surf",
+      "region": "Hoenn",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Tentacruel",
+      "location": "Victory Road",
+      "method": "Surf",
+      "region": "Sinnoh",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Gothorita",
+      "location": "Route 9",
+      "method": "Dark Grass",
+      "region": "Unova",
+      "encounter": "100% Sp Def EV Encounter"
+    },
+    {
+      "pokemon": "Mantine",
+      "location": "Undella Town",
+      "method": "Surf",
+      "region": "Unova",
+      "encounter": "100% Sp Def EV Encounter"
+    }
+  ],
+  "speed": [
+    {
+      "pokemon": "Rapidash",
+      "location": "Route 12",
+      "method": "Grass",
+      "region": "Unova",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Pigeotto",
+      "location": "Five Isle Meadow",
+      "method": "Grass",
+      "region": "Kanto",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Poliwhirl",
+      "location": "Blackthorn City",
+      "method": "Surf",
+      "region": "Johto",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Poliwhirl",
+      "location": "Mt. Silver",
+      "method": "Surf",
+      "region": "Johto",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Linoone",
+      "location": "Route 121",
+      "method": "Grass",
+      "region": "Hoenn",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Raticate",
+      "location": "Dreamyard Basement",
+      "method": "—",
+      "region": "Unova",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Basculin, Buizel",
+      "location": "Route 11",
+      "method": "Surf",
+      "region": "Unova",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Liepard",
+      "location": "Dreamyard",
+      "method": "Dark Grass",
+      "region": "Unova",
+      "encounter": "100% Speed EV Encounter"
+    },
+    {
+      "pokemon": "Floatzel, Electabuzz",
+      "location": "Route 222",
+      "method": "Grass",
+      "region": "Sinnoh",
+      "encounter": "100% Speed EV Encounter"
+    }
+  ],
+  "recommendations": {
+    "Unova": [
+      { "pokemon": "Stunfisk", "location": "Icirrus City", "method": "Surf in Pond" },
+      { "pokemon": "Amoonguss", "location": "Route 10", "method": "Dark Grass" }
+    ],
+    "Kanto": [
+      { "pokemon": "Paras", "location": "Mt. Moon B1F", "method": "Cave" },
+      { "pokemon": "Tangela", "location": "Route 21", "method": "Grass" }
+    ]
+  }
+}
