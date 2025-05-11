@@ -23,8 +23,10 @@ function EVDistribution({ savedPokemon }) {
   });
   const [region, setRegion] = useState('Unova');
   const [showPopup, setShowPopup] = useState(false);
-  const [level, setLevel] = useState(50); // Default level
+  const [level, setLevel] = useState(60); // Default level
   const [nature, setNature] = useState('neutral'); // Default nature
+  const [expandedTab, setExpandedTab] = useState(null); // Track which tab is expanded
+  const [activeTab, setActiveTab] = useState('level-up'); // Track the active tab
 
   const natureMultipliers = {
     neutral: { attack: 1, defense: 1, spAttack: 1, spDefense: 1, speed: 1 },
@@ -77,22 +79,8 @@ function EVDistribution({ savedPokemon }) {
     const currentTotal = Object.values(currentStats).reduce((sum, statValue) => sum + statValue, 0);
     const newTotal = currentTotal - currentStats[stat] + value;
 
-    if (type === 'ev' && newTotal <= maxTotal) {
-      // EV logic with redistribution
-      const adjustedStats = { ...currentStats, [stat]: value };
-      const remaining = maxTotal - newTotal;
-
-      const otherStats = Object.keys(currentStats).filter((key) => key !== stat);
-      const totalOtherValues = otherStats.reduce((sum, key) => sum + adjustedStats[key], 0);
-
-      otherStats.forEach((key) => {
-        const additional = (remaining * adjustedStats[key]) / totalOtherValues || 0;
-        adjustedStats[key] = Math.min(255, adjustedStats[key] + Math.floor(additional));
-      });
-
-      setStats(adjustedStats);
-    } else if (type === 'iv' && newTotal <= maxTotal) {
-      // Simple IV logic without redistribution
+    if (newTotal <= maxTotal) {
+      // Simple logic for both EVs and IVs without redistribution
       setStats({ ...currentStats, [stat]: value });
     }
   };
@@ -115,6 +103,41 @@ function EVDistribution({ savedPokemon }) {
       }
     }
     return recommendations;
+  };
+
+  const groupMovesByMethod = (moves) => {
+    const grouped = {
+      'level-up': [],
+      machine: [],
+      egg: [],
+      tutor: [],
+    };
+
+    moves.forEach((move) => {
+      const method = move.method || 'unknown';
+      if (grouped[method]) {
+        grouped[method].push(move);
+      }
+    });
+
+    // Sort "level-up" by level and others by the first character of the name
+    grouped['level-up'].sort((a, b) => a.level - b.level);
+    ['machine', 'egg', 'tutor'].forEach((method) => {
+      grouped[method].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    return grouped;
+  };
+
+  const getNatureLabel = (natureKey) => {
+    const nature = natureMultipliers[natureKey];
+    const increasedStat = Object.keys(nature).find((stat) => nature[stat] > 1);
+    const decreasedStat = Object.keys(nature).find((stat) => nature[stat] < 1);
+
+    if (increasedStat && decreasedStat) {
+      return `${natureKey.charAt(0).toUpperCase() + natureKey.slice(1)} (+${increasedStat}, -${decreasedStat})`;
+    }
+    return `${natureKey.charAt(0).toUpperCase() + natureKey.slice(1)} (Neutral)`;
   };
 
   return (
@@ -234,7 +257,7 @@ function EVDistribution({ savedPokemon }) {
             >
               {Object.keys(natureMultipliers).map((natureKey) => (
                 <option key={natureKey} value={natureKey}>
-                  {natureKey.charAt(0).toUpperCase() + natureKey.slice(1)}
+                  {getNatureLabel(natureKey)}
                 </option>
               ))}
             </select>
@@ -272,6 +295,65 @@ function EVDistribution({ savedPokemon }) {
               );
             })}
           </div>
+          {savedPokemon.strategyUrl && (
+            <div style={{ marginTop: '10px' }}>
+              <h4>Enlace a Estrategia:</h4>
+              <a href={savedPokemon.strategyUrl} target="_blank" rel="noopener noreferrer">
+                Ver estrategia en Pokexperto
+              </a>
+            </div>
+          )}
+          {savedPokemon.moves && (
+            <div style={{ marginTop: '20px' }}>
+              <h4>Movimientos:</h4>
+              <div style={{ display: 'flex', marginBottom: '10px' }}>
+                {['level-up', 'machine', 'egg', 'tutor'].map((method) => (
+                  <button
+                    key={method}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: activeTab === method ? '#4caf50' : '#f0f0f0',
+                      color: activeTab === method ? 'white' : 'black',
+                      border: '1px solid #ccc',
+                      borderRadius: '5px',
+                    }}
+                    onClick={() => setActiveTab(method)}
+                  >
+                    {method === 'level-up' && 'Por Nivel'}
+                    {method === 'machine' && 'Por MT/MO'}
+                    {method === 'egg' && 'Por Huevo'}
+                    {method === 'tutor' && 'Por Tutor'}
+                  </button>
+                ))}
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                <thead>
+                  <tr>
+                    {activeTab === 'level-up' && (
+                      <th style={{ border: '1px solid #ccc', padding: '5px' }}>Nivel</th>
+                    )}
+                    <th style={{ border: '1px solid #ccc', padding: '5px' }}>Movimiento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupMovesByMethod(savedPokemon.moves)[activeTab]?.map((move, index) => (
+                    <tr key={index}>
+                      {activeTab === 'level-up' && (
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
+                          {move.level}
+                        </td>
+                      )}
+                      <td style={{ border: '1px solid #ccc', padding: '5px' }}>
+                        {move.name}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

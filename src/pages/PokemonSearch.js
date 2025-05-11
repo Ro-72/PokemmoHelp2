@@ -65,10 +65,51 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false }) {
       });
   };
 
-  const savePokemon = () => {
+  const savePokemon = async () => {
     if (pokemonData) {
-      setSavedPokemon(pokemonData);
-      navigate('/ev-distribution'); // Redirigir a la página de distribución de EVs
+      const strategyUrl = `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemonData.id}`;
+      try {
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonData.id}`);
+        const data = await response.json();
+        console.log('Movimientos completos:', data.moves); // Mostrar todos los datos de los movimientos en la consola
+
+        const moves = await Promise.all(
+          data.moves.map(async (move) => {
+            const method = move.version_group_details?.[0]?.move_learn_method?.name || 'unknown';
+            const level = move.version_group_details?.[0]?.level_learned_at || 'N/A';
+
+            let mtId = null;
+            let breedingPartner = null;
+
+            if (method === 'machine') {
+              // Fetch MT/MO details
+              const machineResponse = await fetch(move.move.url);
+              const machineData = await machineResponse.json();
+              mtId = machineData.machines?.[0]?.machine?.name || 'N/A';
+            }
+
+            if (method === 'egg') {
+              // Fetch breeding partner details
+              const eggResponse = await fetch(move.move.url);
+              const eggData = await eggResponse.json();
+              breedingPartner = eggData.flavor_text_entries?.[0]?.flavor_text || 'N/A';
+            }
+
+            return {
+              name: move.move.name,
+              method,
+              level,
+              mtId,
+              breedingPartner,
+            };
+          })
+        );
+
+        setSavedPokemon({ ...pokemonData, strategyUrl, moves }); // Add strategy URL and moves
+        navigate('/ev-distribution'); // Redirigir a la página de distribución de EVs
+      } catch {
+        alert('Error al obtener los movimientos del Pokémon.');
+      }
     }
   };
 
