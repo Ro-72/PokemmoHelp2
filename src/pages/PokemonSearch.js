@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import pokemonMovesData from '../pokemon_moves.json'; // Adjust path as needed
 
 function PokemonSearch({ setSavedPokemon, disableAutocomplete = false }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,41 +70,30 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false }) {
     if (pokemonData) {
       const strategyUrl = `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemonData.id}`;
       try {
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonData.id}`);
-        const data = await response.json();
-        console.log('Movimientos completos:', data.moves); // Mostrar todos los datos de los movimientos en la consola
+        // Get moves from local JSON instead of API
+        const movesRaw = pokemonMovesData[pokemonData.name?.toLowerCase()]?.moves || [];
+        // Map moves to the expected structure
+        const moves = movesRaw.map(move => {
+          // Determine method based on fields
+          let method = 'unknown';
+          if ('level' in move) method = 'level-up';
+          else if (move.type === 'egg_moves') method = 'egg';
+          else if (move.type === 'move_tutor') method = 'tutor';
+          else if (move.type === 'move_learner_tools' || move.type === 'special_moves') method = 'machine';
+          // Add more mappings if needed
 
-        const moves = await Promise.all(
-          data.moves.map(async (move) => {
-            const method = move.version_group_details?.[0]?.move_learn_method?.name || 'unknown';
-            const level = move.version_group_details?.[0]?.level_learned_at || 'N/A';
+          return {
+            name: move.name || '(desconocido)', // Name is not present in your JSON, so fallback
+            method,
+            level: move.level ?? 'N/A',
+            mtId: method === 'machine' ? move.id : null,
+            breedingPartner: method === 'egg' ? (move.breedingPartner || null) : null,
+            raw: move // For debugging
+          };
+        });
 
-            let mtId = null;
-            let breedingPartner = null;
-
-            if (method === 'machine') {
-              // Fetch MT/MO details
-              const machineResponse = await fetch(move.move.url);
-              const machineData = await machineResponse.json();
-              mtId = machineData.machines?.[0]?.machine?.name || 'N/A';
-            }
-
-            if (method === 'egg') {
-              // Fetch breeding partner details
-              const eggResponse = await fetch(move.move.url);
-              const eggData = await eggResponse.json();
-              breedingPartner = eggData.flavor_text_entries?.[0]?.flavor_text || 'N/A';
-            }
-
-            return {
-              name: move.move.name,
-              method,
-              level,
-              mtId,
-              breedingPartner,
-            };
-          })
-        );
+        // Show moves in the console for verification
+        console.log('Movimientos extraídos:', moves);
 
         setSavedPokemon({ ...pokemonData, strategyUrl, moves }); // Add strategy URL and moves
         navigate('/ev-distribution'); // Redirigir a la página de distribución de EVs

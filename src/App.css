@@ -106,6 +106,101 @@
   line-height: 1.5;
 }
 
+/* Layout containers */
+.ev-container {
+  display: flex;
+  gap: 20px;
+}
+.ev-iv-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* EV/IV slider rows */
+.ev-slider-row,
+.iv-slider-row {
+  margin-bottom: 10px;
+}
+.ev-slider-value,
+.iv-slider-value {
+  margin-left: 10px;
+}
+.ev-total,
+.iv-total {
+  font-weight: bold;
+}
+
+/* Pokemon info section */
 .pokemon-info {
   font-size: 8px;
+  flex: 1;
+  border: 1px solid #ccc;
+  padding: 10px;
 }
+.pokemon-level-row,
+.pokemon-nature-row,
+.pokemon-stat-row {
+  margin-bottom: 10px;
+}
+.pokemon-level-input {
+  margin-left: 10px;
+  width: 50px;
+}
+.pokemon-nature-select {
+  margin-left: 10px;
+}
+.pokemon-strategy-row {
+  margin-top: 10px;
+}
+.pokemon-moves-row {
+  margin-top: 20px;
+}
+
+/* Stat bar */
+.stat-bar-bg {
+  background: #ddd;
+  width: 100%;
+  height: 10px;
+  position: relative;
+}
+.stat-bar-fill {
+  background: #4caf50;
+  height: 100%;
+}
+
+/* Moves tabs/buttons */
+.move-tabs {
+  display: flex;
+  margin-bottom: 10px;
+}
+.move-tab-btn {
+  flex: 1;
+  padding: 10px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f0f0f0;
+  color: black;
+}
+.move-tab-btn.active {
+  background-color: #4caf50;
+  color: white;
+}
+
+/* Moves table */
+.moves-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.moves-table th,
+.moves-table td {
+  border: 1px solid #ccc;
+  padding: 5px;
+}
+.moves-table td.center {
+  text-align: center;
+}
+
