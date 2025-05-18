@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import itemsData from '../items.mock.data.json';
 
 function PokemonInfo({
   savedPokemon,
@@ -43,6 +44,92 @@ function PokemonInfo({
     // Optionally, you can update savedPokemon.selectedMoves here if you want to persist in local state
   };
 
+  // State for item input and suggestions
+  const [item, setItem] = useState('');
+  const [itemSuggestions, setItemSuggestions] = useState([]);
+
+  useEffect(() => {
+    if (item.length > 0) {
+      const filtered = itemsData.Items.filter(i =>
+        i.toLowerCase().includes(item.toLowerCase())
+      ).slice(0, 5);
+      setItemSuggestions(filtered);
+    } else {
+      setItemSuggestions([]);
+    }
+  }, [item]);
+
+  const handleItemSuggestionClick = (suggestion) => {
+    setItem(suggestion);
+    setItemSuggestions([]);
+  };
+
+  // Helper to convert stat mapping to Showdown format
+  const statShowdownMap = {
+    hp: 'HP',
+    attack: 'Atk',
+    defense: 'Def',
+    spAttack: 'SpA',
+    spDefense: 'SpD',
+    speed: 'Spe',
+  };
+
+  // Helper to convert nature to Showdown format
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
+  // Download as .txt in Showdown format
+  const handleDownloadShowdown = () => {
+    // Name and item
+    let lines = [];
+    let pokeName = capitalize(savedPokemon.name);
+    let itemLine = item ? ` @ ${item.replace(/-/g, ' ')}` : '';
+    lines.push(`${pokeName}${itemLine}`);
+
+    // Ability (not available in your data, so skip or add placeholder)
+    // lines.push(`Ability: ???`);
+
+    // Level
+    if (level) lines.push(`Level: ${level}`);
+
+    // Nature
+    if (nature && nature !== 'neutral') lines.push(`${capitalize(nature)} Nature`);
+
+    // EVs
+    const evParts = [];
+    for (const [key, val] of Object.entries(evs)) {
+      if (val > 0) evParts.push(`${val} ${statShowdownMap[key]}`);
+    }
+    if (evParts.length > 0) lines.push(`EVs: ${evParts.join(' / ')}`);
+
+    // IVs
+    const ivParts = [];
+    for (const [key, val] of Object.entries(ivs)) {
+      if (val < 31) ivParts.push(`${val} ${statShowdownMap[key]}`);
+    }
+    if (ivParts.length > 0) lines.push(`IVs: ${ivParts.join(' / ')}`);
+
+    // Moves
+    if (selectedMoves.length > 0) {
+      selectedMoves.forEach(move => {
+        if (move.name && move.name !== '(desconocido)') {
+          lines.push(`- ${capitalize(move.name.replace(/-/g, ' '))}`);
+        }
+      });
+    }
+
+    // Join lines and trigger download
+    const showdownText = lines.join('\n');
+    const blob = new Blob([showdownText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${pokeName}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="pokemon-info" style={{ flex: 1, border: '1px solid #ccc', padding: '10px' }}>
       <h3>Información del Pokémon Guardado</h3>
@@ -75,6 +162,44 @@ function PokemonInfo({
             </option>
           ))}
         </select>
+      </div>
+      {/* New Item input with autocomplete */}
+      <div style={{ marginBottom: '10px', position: 'relative' }}>
+        <label htmlFor="item">Objeto:</label>
+        <input
+          id="item"
+          type="text"
+          placeholder="Buscar objeto"
+          value={item}
+          onChange={e => setItem(e.target.value)}
+          style={{ marginLeft: '10px', width: '150px' }}
+          autoComplete="off"
+        />
+        {itemSuggestions.length > 0 && (
+          <ul
+            style={{
+              position: 'absolute',
+              background: 'white',
+              border: '1px solid #ccc',
+              listStyle: 'none',
+              margin: 0,
+              padding: '0 5px',
+              width: '150px',
+              zIndex: 10,
+              fontSize: '12px'
+            }}
+          >
+            {itemSuggestions.map((suggestion, idx) => (
+              <li
+                key={idx}
+                style={{ cursor: 'pointer', padding: '2px 0' }}
+                onClick={() => handleItemSuggestionClick(suggestion)}
+              >
+                {suggestion}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div>
         <h4>Estadísticas:</h4>
@@ -205,11 +330,11 @@ function PokemonInfo({
           </form>
           <button
             style={{ marginTop: '10px', padding: '5px 10px' }}
-            onClick={handleSaveMoves}
+            onClick={handleDownloadShowdown}
             type="button"
             disabled={selectedMoves.length === 0}
           >
-            Guardar Movimientos
+            Guardar
           </button>
           {selectedMoves.length > 0 && (
             <div style={{ marginTop: '15px' }}>
