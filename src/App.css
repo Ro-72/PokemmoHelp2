@@ -204,3 +204,84 @@
   text-align: center;
 }
 
+.App.dark-mode {
+  background: #181a1b;
+  color: #e0e0e0;
+}
+.App.dark-mode .App-header {
+  background-color: #23272b;
+  color: #e0e0e0;
+}
+.App.dark-mode .App-link {
+  color: #FFD600;
+}
+.App.dark-mode .App-link:hover {
+  color: #fff176;
+}
+.App.dark-mode .recommendation-popup,
+.App.dark-mode .smallpopup {
+  background: #23272b;
+  color: #e0e0e0;
+  border-color: #444;
+}
+.App.dark-mode .close-popup {
+  background-color: #FFD600;
+  color: #23272b;
+}
+.App.dark-mode .ev-form,
+.App.dark-mode .iv-form,
+.App.dark-mode .pokemon-info {
+  background: #23272b;
+  color: #e0e0e0;
+  border-color: #444;
+}
+.App.dark-mode input,
+.App.dark-mode select,
+.App.dark-mode button {
+  background: #23272b;
+  color: #FFD600;
+  border-color: #444;
+}
+.App.dark-mode table {
+  background: #23272b;
+  color: #e0e0e0;
+}
+.App.dark-mode th,
+.App.dark-mode td {
+  border-color: #444;
+}
+.App.dark-mode .stat-bar-bg {
+  background: #333;
+}
+.App.dark-mode .stat-bar-fill {
+  background: #FFD600;
+}
+
+.berries-page {
+  background: #fff;
+  color: #222;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+.berries-page.dark-mode {
+  background: #181a1b;
+  color: #FFD600;
+}
+.berries-loading {
+  text-align: center;
+  font-size: 1.2em;
+  margin-top: 40px;
+}
+.berries-loading.dark-mode {
+  color: #FFD600;
+}
+.berries-simulation.dark-mode {
+  background: #181a1b;
+  color: #FFD600;
+}
+.berries-simulation {
+  background: #fff;
+  color: #222;
+  padding: 10px 0;
+}
+
