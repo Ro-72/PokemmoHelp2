@@ -121,7 +121,7 @@ function classifyBerry(effect) {
   return 'Other';
 }
 
-// Group berries by category, and split "Other" into two blocks if needed
+// Group berries by category, and order: EV Lowering, Super-effective, then the rest
 function groupBerries(berriesList) {
   const groups = {};
   let otherBerries = [];
@@ -142,24 +142,27 @@ function groupBerries(berriesList) {
     otherBerries.forEach(b => {
       const e = (b.effect || '').toLowerCase();
       if (
-        e.includes('super-effective') || e.includes('supereffective') ||
-        e.includes('is lessened') || e.includes('damage taken from a supereffective')
+        e.includes('super effective') || e.includes('supereffective') ||
+        e.includes('is lessened') || e.includes('halve the') || e.includes('damage taken from a supereffective')
       ) {
         superEff.push(b);
       } else {
         other.push(b);
       }
     });
-    if (other.length > 0) groups['Other'] = other;
     if (superEff.length > 0) groups['Super-effective Berries'] = superEff;
+    if (other.length > 0) groups['Other'] = other;
   }
-  // Ensure EV Lowering Berries is first
+  // Order: EV Lowering, Super-effective, then the rest
   const ordered = {};
   if (groups['EV Lowering Berries']) {
     ordered['EV Lowering Berries'] = groups['EV Lowering Berries'];
   }
+  if (groups['Super-effective Berries']) {
+    ordered['Super-effective Berries'] = groups['Super-effective Berries'];
+  }
   Object.keys(groups).forEach(key => {
-    if (key !== 'EV Lowering Berries') {
+    if (key !== 'EV Lowering Berries' && key !== 'Super-effective Berries') {
       ordered[key] = groups[key];
     }
   });
@@ -169,72 +172,37 @@ function groupBerries(berriesList) {
 function BerriesList({ berriesList }) {
   const groups = groupBerries(berriesList);
 
-  // Convert groups to array for column rendering
-  const groupEntries = Object.entries(groups);
-  const mid = Math.ceil(groupEntries.length / 2);
-  const leftGroups = groupEntries.slice(0, mid);
-  const rightGroups = groupEntries.slice(mid);
-
+  // Render all groups in a single column, with EV and Super-effective first
   return (
     <div>
       <h3>Berry List</h3>
-      <div style={{ display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          {leftGroups.map(([group, berries]) => (
-            <div key={group} style={{ marginBottom: '30px' }}>
-              <h4 style={{ color: '#4caf50', marginBottom: '10px' }}>{group}</h4>
-              <table style={{ margin: '0 auto', borderCollapse: 'collapse', minWidth: '320px' }}>
-                <thead>
-                  <tr>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Name</th>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Effect</th>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Growth</th>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        {Object.entries(groups).map(([group, berries]) => (
+          <div key={group} style={{ marginBottom: '30px' }}>
+            <h4 style={{ color: '#4caf50', marginBottom: '10px' }}>{group}</h4>
+            <table style={{ margin: '0 auto', borderCollapse: 'collapse', minWidth: '320px' }}>
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #ccc', padding: '6px' }}>Name</th>
+                  <th style={{ border: '1px solid #ccc', padding: '6px' }}>Effect</th>
+                  <th style={{ border: '1px solid #ccc', padding: '6px' }}>Growth</th>
+                </tr>
+              </thead>
+              <tbody>
+                {berries.map((b, idx) => (
+                  <tr key={idx}>
+                    <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.name}</td>
+                    <td
+                      style={{ border: '1px solid #ccc', padding: '6px' }}
+                      dangerouslySetInnerHTML={{ __html: colorizeEffect(b.effect) }}
+                    />
+                    <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.growth}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {berries.map((b, idx) => (
-                    <tr key={idx}>
-                      <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.name}</td>
-                      <td
-                        style={{ border: '1px solid #ccc', padding: '6px' }}
-                        dangerouslySetInnerHTML={{ __html: colorizeEffect(b.effect) }}
-                      />
-                      <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.growth}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
-        <div style={{ flex: 1 }}>
-          {rightGroups.map(([group, berries]) => (
-            <div key={group} style={{ marginBottom: '30px' }}>
-              <h4 style={{ color: '#4caf50', marginBottom: '10px' }}>{group}</h4>
-              <table style={{ margin: '0 auto', borderCollapse: 'collapse', minWidth: '320px' }}>
-                <thead>
-                  <tr>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Name</th>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Effect</th>
-                    <th style={{ border: '1px solid #ccc', padding: '6px' }}>Growth</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {berries.map((b, idx) => (
-                    <tr key={idx}>
-                      <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.name}</td>
-                      <td
-                        style={{ border: '1px solid #ccc', padding: '6px' }}
-                        dangerouslySetInnerHTML={{ __html: colorizeEffect(b.effect) }}
-                      />
-                      <td style={{ border: '1px solid #ccc', padding: '6px' }}>{b.growth}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </div>
   );

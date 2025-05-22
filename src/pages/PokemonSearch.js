@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import pokemonMovesData from '../pokemon_moves.json'; // Adjust path as needed
 
-function PokemonSearch({ setSavedPokemon, disableAutocomplete = false }) {
+function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [pokemonData, setPokemonData] = useState(null);
@@ -97,6 +97,7 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false }) {
 
         setSavedPokemon({ ...pokemonData, strategyUrl, moves }); // Add strategy URL and moves
         navigate('/ev-distribution'); // Redirigir a la página de distribución de EVs
+        if (onClose) onClose(); // Cierra la ventana si se pasa la función
       } catch {
         alert('Error al obtener los movimientos del Pokémon.');
       }

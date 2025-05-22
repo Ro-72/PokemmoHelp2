@@ -224,7 +224,11 @@ function AppWrapper() {
             >
               ✖
             </button>
-            <PokemonSearch setSavedPokemon={setSavedPokemon} disableAutocomplete={false} />
+            <PokemonSearch
+              setSavedPokemon={setSavedPokemon}
+              disableAutocomplete={false}
+              onClose={() => setShowPokemonSearch(false)}
+            />
           </div>
           <div
             style={{
