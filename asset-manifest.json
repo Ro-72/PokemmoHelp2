@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/PokemmoHelp2/static/css/main.8520e758.css",
-    "main.js": "/PokemmoHelp2/static/js/main.5c642db0.js",
+    "main.js": "/PokemmoHelp2/static/js/main.f9cf263c.js",
     "static/js/453.2c440dc0.chunk.js": "/PokemmoHelp2/static/js/453.2c440dc0.chunk.js",
     "index.html": "/PokemmoHelp2/index.html",
     "main.8520e758.css.map": "/PokemmoHelp2/static/css/main.8520e758.css.map",
-    "main.5c642db0.js.map": "/PokemmoHelp2/static/js/main.5c642db0.js.map",
+    "main.f9cf263c.js.map": "/PokemmoHelp2/static/js/main.f9cf263c.js.map",
     "453.2c440dc0.chunk.js.map": "/PokemmoHelp2/static/js/453.2c440dc0.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.8520e758.css",
-    "static/js/main.5c642db0.js"
+    "static/js/main.f9cf263c.js"
   ]
 }
