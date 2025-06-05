@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import pokemonMovesData from '../pokemon_moves.json'; // Adjust path as needed
 
@@ -8,6 +8,7 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }
   const [pokemonData, setPokemonData] = useState(null);
   const [allPokemon, setAllPokemon] = useState([]); // Store all Pokémon names
   const navigate = useNavigate();
+  const inputRef = useRef(null);
 
   useEffect(() => {
     // Fetch all Pokémon names once
@@ -66,12 +67,24 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }
       });
   };
 
+  // Add this helper function to normalize names for move lookup
+  function getBasePokemonName(name) {
+    if (!name) return '';
+    // Remove dashes and anything after them for forms like "darmanitan-standard"
+    // Also handle some common form patterns
+    return name
+      .toLowerCase()
+      .replace(/-.*$/, '') // Remove everything after first dash
+      .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric chars for safety
+  }
+
   const savePokemon = async () => {
     if (pokemonData) {
       const strategyUrl = `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemonData.id}`;
       try {
-        // Get moves from local JSON instead of API
-        const movesRaw = pokemonMovesData[pokemonData.name?.toLowerCase()]?.moves || [];
+        // Use normalized name for move lookup
+        const baseName = getBasePokemonName(pokemonData.name);
+        const movesRaw = pokemonMovesData[baseName]?.moves || [];
         // Map moves to the expected structure
         const moves = movesRaw.map(move => {
           // Determine method based on fields
@@ -104,14 +117,29 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }
     }
   };
 
+  useEffect(() => {
+    // Auto-select the input when the component is mounted/shown
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, []);
+
   return (
     <div>
       <h2>Buscar Pokémon</h2>
       <input
+        ref={inputRef}
         type="text"
         placeholder="Ingresa el nombre o ID del Pokémon"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSearch();
+          }
+        }}
       />
       <button onClick={handleSearch}>Buscar</button>
       {!disableAutocomplete && (

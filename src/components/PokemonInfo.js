@@ -17,7 +17,7 @@ function PokemonInfo({
   setActiveTab,
   groupMovesByMethod,
   getNatureLabel,
-  onSaveMoves, // Optional: callback to parent if you want to propagate moves up
+  onSaveMoves,
 }) {
   // Track selected moves for this Pokémon
   const [selectedMoves, setSelectedMoves] = useState(savedPokemon.selectedMoves || []);
@@ -129,6 +129,157 @@ function PokemonInfo({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  // --- Move type and class fetching logic ---
+  const [moveTypes, setMoveTypes] = useState({}); // { moveName: type }
+  const [moveClasses, setMoveClasses] = useState({}); // { moveName: class }
+
+  useEffect(() => {
+    // Get all unique move names from savedPokemon.moves
+    if (!savedPokemon.moves) return;
+    const allMoves = savedPokemon.moves.map(m => m.name);
+    const uniqueMoves = Array.from(new Set(allMoves));
+    // Only fetch types/classes for moves not already in moveTypes/moveClasses
+    const toFetch = uniqueMoves.filter(name => !moveTypes[name] || !moveClasses[name]);
+    if (toFetch.length === 0) return;
+
+    // Fetch type and class for each move from PokéAPI
+    const fetchTypesAndClasses = async () => {
+      const newTypes = {};
+      const newClasses = {};
+      await Promise.all(
+        toFetch.map(async (moveName) => {
+          try {
+            // PokéAPI expects move names in kebab-case
+            const apiName = moveName.toLowerCase().replace(/ /g, '-');
+            const res = await fetch(`https://pokeapi.co/api/v2/move/${apiName}`);
+            if (res.ok) {
+              const data = await res.json();
+              newTypes[moveName] = data.type.name;
+              newClasses[moveName] = data.damage_class.name; // 'physical', 'special', 'status'
+            } else {
+              newTypes[moveName] = 'normal'; // fallback
+              newClasses[moveName] = 'status'; // fallback
+            }
+          } catch {
+            newTypes[moveName] = 'normal';
+            newClasses[moveName] = 'status';
+          }
+        })
+      );
+      setMoveTypes(prev => ({ ...prev, ...newTypes }));
+      setMoveClasses(prev => ({ ...prev, ...newClasses }));
+    };
+    fetchTypesAndClasses();
+    // eslint-disable-next-line
+  }, [savedPokemon.moves]);
+
+  // --- Type color mapping ---
+  const typeColors = {
+    normal: '#BDBDBD',
+    fire: '#FF7043',
+    water: '#29B6F6',
+    electric: '#FFD600',
+    grass: '#66BB6A',
+    ice: '#81D4FA',
+    fighting: '#D84315',
+    poison: '#AB47BC',
+    ground: '#D7CCC8',
+    flying: '#90CAF9',
+    psychic: '#F06292',
+    bug: '#AEEA00',
+    rock: '#A1887F',
+    ghost: '#7E57C2',
+    dragon: '#1976D2',
+    dark: '#616161',
+    steel: '#90A4AE',
+    fairy: '#F8BBD0',
+    // ...add more if needed
+  };
+
+  // Helper to render move name with color by type and style by class
+  function renderMoveName(move) {
+    const type = moveTypes[move.name] || 'normal';
+    const color = typeColors[type] || '#BDBDBD';
+    const moveClass = moveClasses[move.name] || 'status';
+    let style = { color };
+    let content = move.name;
+
+    // Apply formatting based on move class
+    if (moveClass === 'physical') {
+      style.fontWeight = 'bold';
+      style.fontSize = '1.15em';
+      content = <b>{content}</b>;
+    } else if (moveClass === 'special') {
+      content = <i>{content}</i>;
+    } else if (moveClass === 'status') {
+      content = <u>{content}</u>;
+    }
+
+    // Build the URL for the move (replace spaces with '-')
+    const moveUrl = `https://pokemondb.net/move/${move.name.toLowerCase().replace(/ /g, '-')}`;
+
+    return (
+      <a
+        href={moveUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+      >
+        <span style={style}>
+          {content}
+        </span>
+      </a>
+    );
+  }
+
+  // State for sorting moves by name and level and type
+  const [sortMovesAsc, setSortMovesAsc] = useState(true);
+  const [sortLevelAsc, setSortLevelAsc] = useState(true);
+  const [sortTypeAsc, setSortTypeAsc] = useState(null); // null means not sorting by type
+
+  // Helper to get sorted moves for the current tab
+  function getSortedMoves(moves) {
+    if (!moves) return [];
+    const movesArr = [...moves];
+    // Sort by type if requested
+    if (sortTypeAsc !== null) {
+      movesArr.sort((a, b) => {
+        const typeA = (moveTypes[a.name] || 'normal').toLowerCase();
+        const typeB = (moveTypes[b.name] || 'normal').toLowerCase();
+        if (typeA < typeB) return sortTypeAsc ? -1 : 1;
+        if (typeA > typeB) return sortTypeAsc ? 1 : -1;
+        // If types are equal, fallback to name
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
+        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
+        return 0;
+      });
+    } else if (activeTab === 'level-up') {
+      movesArr.sort((a, b) => {
+        const levelA = a.level !== undefined ? a.level : 0;
+        const levelB = b.level !== undefined ? b.level : 0;
+        if (levelA < levelB) return sortLevelAsc ? -1 : 1;
+        if (levelA > levelB) return sortLevelAsc ? 1 : -1;
+        // If levels are equal, fallback to name
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
+        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
+        return 0;
+      });
+    } else {
+      movesArr.sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
+        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
+        return 0;
+      });
+    }
+    return movesArr;
+  }
 
   return (
     <div className="pokemon-info" style={{ flex: 1, border: '1px solid #ccc', padding: '10px' }}>
@@ -273,10 +424,49 @@ function PokemonInfo({
                 <tr>
                   <th style={{ border: '1px solid #ccc', padding: '5px' }}></th>
                   {activeTab === 'level-up' && (
-                    <th style={{ border: '1px solid #ccc', padding: '5px' }}>Nivel</th>
+                    <th
+                      style={{ border: '1px solid #ccc', padding: '5px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => {
+                        setSortTypeAsc(null);
+                        setSortLevelAsc((prev) => !prev);
+                      }}
+                      title="Ordenar por nivel"
+                    >
+                      Nivel {sortLevelAsc ? '▲' : '▼'}
+                    </th>
                   )}
-                  <th style={{ border: '1px solid #ccc', padding: '5px' }}>Movimiento</th>
-                  <th style={{ border: '1px solid #ccc', padding: '5px' }}>Método</th>
+                  <th
+                    style={{ border: '1px solid #ccc', padding: '5px', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => {
+                      setSortTypeAsc(null);
+                      setSortMovesAsc((prev) => !prev);
+                    }}
+                    title="Ordenar por nombre"
+                  >
+                    Movimiento {sortMovesAsc ? '▲' : '▼'}
+                  </th>
+                  <th
+                    style={{
+                      border: '1px solid #ccc',
+                      padding: '5px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                      minWidth: '80px'
+                    }}
+                    onClick={() => setSortTypeAsc((prev) => prev === null ? true : !prev)}
+                    title="Ordenar por tipo"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <span>Tipo</span>
+                      <span>
+                        {sortTypeAsc === null
+                          ? '▲'
+                          : (sortTypeAsc ? '▲' : '▼')}
+                      </span>
+                    </div>
+                  </th>
                   {activeTab === 'machine' && (
                     <th style={{ border: '1px solid #ccc', padding: '5px' }}>MT/MO</th>
                   )}
@@ -286,7 +476,7 @@ function PokemonInfo({
                 </tr>
               </thead>
               <tbody>
-                {groupMovesByMethod(savedPokemon.moves)[activeTab]?.map((move, index) => (
+                {getSortedMoves(groupMovesByMethod(savedPokemon.moves)[activeTab])?.map((move, index) => (
                   <tr key={index}>
                     <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
                       <input
@@ -308,10 +498,26 @@ function PokemonInfo({
                       </td>
                     )}
                     <td style={{ border: '1px solid #ccc', padding: '5px' }}>
-                      {move.name}
+                      {renderMoveName(move)}
                     </td>
-                    <td style={{ border: '1px solid #ccc', padding: '5px' }}>
-                      {move.method}
+                    <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
+                      {/* Show type with color background */}
+                      {(() => {
+                        const type = moveTypes[move.name] || 'normal';
+                        const color = typeColors[type] || '#BDBDBD';
+                        return (
+                          <span style={{
+                            background: color,
+                            color: '#fff',
+                            borderRadius: '6px',
+                            fontSize: '0.9em',
+                            padding: '2px 8px',
+                            fontWeight: 'bold'
+                          }}>
+                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     {activeTab === 'machine' && (
                       <td style={{ border: '1px solid #ccc', padding: '5px' }}>

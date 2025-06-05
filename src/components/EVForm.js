@@ -12,6 +12,18 @@ function EVForm({
   maxEV,
   handleChange,
 }) {
+  // Handler to reset all EVs to 0
+  const resetEVs = () => {
+    setEvs({
+      hp: 0,
+      attack: 0,
+      defense: 0,
+      spAttack: 0,
+      spDefense: 0,
+      speed: 0,
+    });
+  };
+
   return (
     <div className="ev-form">
       <h3>
@@ -24,8 +36,8 @@ function EVForm({
           ℹ️
         </span>
       </h3>
-      <div>
-        <label>Selecciona tu región:</label>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+        <label style={{ marginRight: '10px' }}>Selecciona tu región:</label>
         <select value={region} onChange={(e) => setRegion(e.target.value)}>
           <option value="Unova">Unova</option>
           <option value="Kanto">Kanto</option>
@@ -48,9 +60,18 @@ function EVForm({
           <span style={{ marginLeft: '10px' }}>{evs[stat]}</span>
         </div>
       ))}
-      <p style={{ fontWeight: 'bold' }}>
-        Total EVs: {Object.values(evs).reduce((sum, ev) => sum + ev, 0)} / {maxEV}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '8px' }}>
+        <p style={{ fontWeight: 'bold', margin: 0 }}>
+          Total EVs: {Object.values(evs).reduce((sum, ev) => sum + ev, 0)} / {maxEV}
+        </p>
+        <button
+          onClick={resetEVs}
+          style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '0.9em' }}
+          type="button"
+        >
+          Reset EVs
+        </button>
+      </div>
     </div>
   );
 }

@@ -21,7 +21,7 @@ function AppWrapper() {
   const [showPokemonSearch, setShowPokemonSearch] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles'
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 

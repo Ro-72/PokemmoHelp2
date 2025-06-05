@@ -36,7 +36,7 @@ function EVDistribution({ savedPokemon }) {
     speed: 0,
   });
   const [region, setRegion] = useState('Unova');
-  const [level, setLevel] = useState(60); // Default level
+  const [level, setLevel] = useState(70); // Default level
   const [nature, setNature] = useState('neutral'); // Default nature
   const [expandedTab, setExpandedTab] = useState(null); // Track which tab is expanded
   const [activeTab, setActiveTab] = useState('level-up'); // Track the active tab
