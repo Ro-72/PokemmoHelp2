@@ -4,6 +4,7 @@ import './App.css';
 import EVDistribution from './pages/EVDistribution';
 import PokemonSearch from './pages/PokemonSearch';
 import BerriesPage from './pages/BerriesPage';
+import PokemonRoles from './pages/PokemonRoles';
 
 // Lista de bayas de ejemplo (puedes expandirla o cargarla de un JSON)
 const berriesList = [
@@ -19,7 +20,7 @@ function AppWrapper() {
   const [savedPokemon, setSavedPokemon] = useState(null);
   const [showPokemonSearch, setShowPokemonSearch] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries'
+  const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles'
   const [darkMode, setDarkMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,6 +34,9 @@ function AppWrapper() {
     }
     if (env === 'berries' && !location.pathname.startsWith('/berries')) {
       navigate('/berries/list');
+    }
+    if (env === 'roles' && location.pathname !== '/pokemon-roles') {
+      navigate('/pokemon-roles');
     }
   };
 
@@ -148,6 +152,22 @@ function AppWrapper() {
           >
             Berries
           </button>
+          <button
+            style={{
+              background: workEnv === 'roles' ? '#4caf50' : (darkMode ? '#23272b' : '#eee'),
+              color: workEnv === 'roles' ? 'white' : (darkMode ? '#FFD600' : 'black'),
+              border: 'none',
+              borderRadius: '4px',
+              padding: '10px',
+              marginBottom: '10px',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left'
+            }}
+            onClick={() => handleEnvChange('roles')}
+          >
+            Pokemon Roles
+          </button>
         </div>
       )}
       {/* Drawer Overlay */}
@@ -185,6 +205,11 @@ function AppWrapper() {
             <Link to="/berries/simulation" className="App-link">Simulación de Plantación</Link>
           </nav>
         )}
+        {workEnv === 'roles' && (
+          <nav>
+            <Link to="/pokemon-roles" className="App-link">Pokemon Roles</Link>
+          </nav>
+        )}
       </header>
       <main>
         {workEnv === 'evs' ? (
@@ -192,10 +217,15 @@ function AppWrapper() {
             <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} />} />
             <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} />} />
           </Routes>
-        ) : (
+        ) : workEnv === 'berries' ? (
           <Routes>
             <Route path="/berries/*" element={<BerriesPage />} />
             <Route path="*" element={<BerriesPage />} />
+          </Routes>
+        ) : (
+          <Routes>
+            <Route path="/pokemon-roles" element={<PokemonRoles pokemonList={[]} />} />
+            <Route path="*" element={<PokemonRoles pokemonList={[]} />} />
           </Routes>
         )}
       </main>
