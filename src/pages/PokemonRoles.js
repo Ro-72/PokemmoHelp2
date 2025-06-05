@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import completePokemonData from '../complete_pokemon_data.json';
+import pokemonMovesData from '../pokemon_moves.json';
 
 const regions = [
   'All Regions',
@@ -13,6 +15,24 @@ const regions = [
   'Galar'
 ];
 
+const tiers = [
+  'All Tiers',
+  'OU Viable',
+  'UU Viable', 
+  'RU Viable',
+  'NU Viable',
+  'PU Viable',
+  'Uber Viable',
+  'LC Viable'
+];
+
+const statusTypes = [
+  'All Status',
+  'Regular',
+  'Legendary',
+  'Mythical'
+];
+
 // Extract unique roles from the complete data
 const getAllRoles = () => {
   const allRoles = new Set();
@@ -24,14 +44,17 @@ const getAllRoles = () => {
   return ['All Roles', ...Array.from(allRoles).sort()];
 };
 
-function PokemonRoles({ pokemonList = [] }) {
+function PokemonRoles({ setSavedPokemon }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
   const [selectedRole, setSelectedRole] = useState('All Roles');
+  const [selectedTier, setSelectedTier] = useState('All Tiers');
+  const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [filteredPokemon, setFilteredPokemon] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  
+  const navigate = useNavigate();
   const allRoles = getAllRoles();
   const allPokemon = completePokemonData.pokemon || [];
 
@@ -107,8 +130,100 @@ function PokemonRoles({ pokemonList = [] }) {
       );
     }
 
+    // Filter by tier (look for viable roles)
+    if (selectedTier !== 'All Tiers') {
+      filtered = filtered.filter(pokemon => {
+        if (!pokemon.roles) return false;
+        return pokemon.roles.some(role => role === selectedTier);
+      });
+    }
+
+    // Filter by status (Legendary/Mythical)
+    if (selectedStatus !== 'All Status') {
+      filtered = filtered.filter(pokemon => {
+        if (selectedStatus === 'Regular') {
+          return !pokemon.isLegendary && !pokemon.isMythical;
+        } else if (selectedStatus === 'Legendary') {
+          return pokemon.isLegendary;
+        } else if (selectedStatus === 'Mythical') {
+          return pokemon.isMythical;
+        }
+        return true;
+      });
+    }
+
     setFilteredPokemon(filtered);
-  }, [searchTerm, selectedRegion, selectedRole, isLoading, allPokemon]);
+  }, [searchTerm, selectedRegion, selectedRole, selectedTier, selectedStatus, isLoading, allPokemon]);
+
+  // Function to save Pokemon to distribution page
+  const savePokemonToDistribution = async (pokemon) => {
+    if (!setSavedPokemon) {
+      console.error('setSavedPokemon function not provided');
+      alert('Error: La función para guardar Pokemon no está disponible.');
+      return;
+    }
+
+    if (pokemon) {
+      const strategyUrl = `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemon.id}`;
+      try {
+        // Get moves from local JSON instead of API
+        const movesRaw = pokemonMovesData[pokemon.name?.toLowerCase()]?.moves || [];
+        // Map moves to the expected structure
+        const moves = movesRaw.map(move => {
+          // Determine method based on fields
+          let method = 'unknown';
+          if ('level' in move) method = 'level-up';
+          else if (move.type === 'egg_moves') method = 'egg';
+          else if (move.type === 'move_tutor') method = 'tutor';
+          else if (move.type === 'move_learner_tools' || move.type === 'special_moves') method = 'machine';
+          // Add more mappings if needed
+
+          return {
+            name: move.name || '(desconocido)', // Name is not present in your JSON, so fallback
+            method,
+            level: move.level ?? 'N/A',
+            mtId: method === 'machine' ? move.id : null,
+            breedingPartner: method === 'egg' ? (move.breedingPartner || null) : null,
+            raw: move // For debugging
+          };
+        });
+
+        // Show moves in the console for verification
+        console.log('Movimientos extraídos:', moves);
+
+        // Transform the complete Pokemon data to match the expected format from PokemonSearch
+        const transformedPokemon = {
+          id: pokemon.id,
+          name: pokemon.name,
+          sprites: {
+            front_default: pokemon.sprite
+          },
+          stats: pokemon.baseStats ? [
+            { stat: { name: 'hp' }, base_stat: pokemon.baseStats.hp || 0 },
+            { stat: { name: 'attack' }, base_stat: pokemon.baseStats.attack || 0 },
+            { stat: { name: 'defense' }, base_stat: pokemon.baseStats.defense || 0 },
+            { stat: { name: 'special-attack' }, base_stat: pokemon.baseStats.specialAttack || 0 },
+            { stat: { name: 'special-defense' }, base_stat: pokemon.baseStats.specialDefense || 0 },
+            { stat: { name: 'speed' }, base_stat: pokemon.baseStats.speed || 0 }
+          ] : [],
+          types: pokemon.types ? pokemon.types.map(type => ({ type: { name: type } })) : [],
+          strategyUrl,
+          moves
+        };
+
+        console.log('Transformed Pokemon:', transformedPokemon);
+        setSavedPokemon({ ...transformedPokemon }); // Add strategy URL and moves
+        
+        // Switch to EVs environment and navigate
+        console.log('Navigating to EV distribution...');
+        navigate('/ev-distribution');
+        
+      } catch (error) {
+        console.error('Error al obtener los movimientos del Pokémon:', error);
+        alert('Error al obtener los movimientos del Pokémon.');
+      }
+    }
+  };
 
   const getRoleColor = (role) => {
     const colors = {
@@ -250,6 +365,36 @@ function PokemonRoles({ pokemonList = [] }) {
           ))}
         </select>
 
+        <select
+          value={selectedTier}
+          onChange={(e) => setSelectedTier(e.target.value)}
+          style={{
+            padding: '10px',
+            border: '2px solid #BDC3C7',
+            borderRadius: '5px',
+            fontSize: '14px'
+          }}
+        >
+          {tiers.map(tier => (
+            <option key={tier} value={tier}>{tier}</option>
+          ))}
+        </select>
+
+        <select
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
+          style={{
+            padding: '10px',
+            border: '2px solid #BDC3C7',
+            borderRadius: '5px',
+            fontSize: '14px'
+          }}
+        >
+          {statusTypes.map(status => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+
         <button
           onClick={loadCompetitivePokemon}
           disabled={selectedRole === 'All Roles'}
@@ -276,7 +421,7 @@ function PokemonRoles({ pokemonList = [] }) {
       {/* Pokemon Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
         gap: '20px'
       }}>
         {filteredPokemon.map((pokemon, index) => (
@@ -285,7 +430,8 @@ function PokemonRoles({ pokemonList = [] }) {
             borderRadius: '10px',
             padding: '15px',
             backgroundColor: '#FAFAFA',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+            position: 'relative'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h3 style={{ margin: 0, color: '#2C3E50', textTransform: 'capitalize' }}>{pokemon.name}</h3>
@@ -338,19 +484,37 @@ function PokemonRoles({ pokemonList = [] }) {
               <div style={{ marginBottom: '15px' }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#34495E', fontSize: '14px' }}>Base Stats:</h4>
                 <div style={{ fontSize: '12px', color: '#7F8C8D' }}>
-                  {typeof pokemon.baseStats === 'object' && pokemon.baseStats.total ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Total:</span>
-                      <span>{pokemon.baseStats.total}</span>
+                      <span>HP:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.hp || 0}</span>
                     </div>
-                  ) : (
-                    Object.entries(pokemon.baseStats).map(([stat, value]) => (
-                      <div key={stat} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{stat.charAt(0).toUpperCase() + stat.slice(1).replace(/([A-Z])/g, ' $1')}:</span>
-                        <span>{value}</span>
-                      </div>
-                    ))
-                  )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Att:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.attack || 0}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Def:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.defense || 0}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>SpA:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.specialAttack || 0}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>SpD:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.specialDefense || 0}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Spe:</span>
+                      <span style={{ fontWeight: 'bold' }}>{pokemon.baseStats.speed || 0}</span>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '8px', textAlign: 'center', padding: '4px', backgroundColor: '#E8F4FD', borderRadius: '4px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#2C3E50' }}>
+                      Total: {(pokemon.baseStats.hp || 0) + (pokemon.baseStats.attack || 0) + (pokemon.baseStats.defense || 0) + (pokemon.baseStats.specialAttack || 0) + (pokemon.baseStats.specialDefense || 0) + (pokemon.baseStats.speed || 0)}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -381,7 +545,7 @@ function PokemonRoles({ pokemonList = [] }) {
             )}
 
             {/* Roles */}
-            <div>
+            <div style={{ marginBottom: '15px' }}>
               <h4 style={{ margin: '0 0 8px 0', color: '#34495E', fontSize: '14px' }}>Competitive Roles:</h4>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                 {pokemon.roles && Array.isArray(pokemon.roles) ? (
@@ -416,12 +580,60 @@ function PokemonRoles({ pokemonList = [] }) {
             </div>
 
             {/* Additional Info */}
-            <div style={{ marginTop: '10px', fontSize: '12px', color: '#7F8C8D' }}>
-              <div>Generation: {pokemon.generation || 'Unknown'}</div>
-              <div>Region: {pokemon.region || 'Unknown'}</div>
-              {pokemon.isLegendary && <div style={{ color: '#E74C3C', fontWeight: 'bold' }}>Legendary</div>}
-              {pokemon.isMythical && <div style={{ color: '#9B59B6', fontWeight: 'bold' }}>Mythical</div>}
+            <div style={{ marginBottom: '15px', fontSize: '12px', color: '#7F8C8D' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Generation: {pokemon.generation || 'Unknown'}</span>
+                <span>Region: {pokemon.region || 'Unknown'}</span>
+              </div>
+              <div style={{ marginTop: '5px', textAlign: 'center' }}>
+                {pokemon.isLegendary && (
+                  <span style={{ 
+                    color: '#E74C3C', 
+                    fontWeight: 'bold', 
+                    backgroundColor: '#FADBD8', 
+                    padding: '2px 6px', 
+                    borderRadius: '8px',
+                    marginRight: '5px',
+                    fontSize: '10px'
+                  }}>
+                    Legendary
+                  </span>
+                )}
+                {pokemon.isMythical && (
+                  <span style={{ 
+                    color: '#9B59B6', 
+                    fontWeight: 'bold', 
+                    backgroundColor: '#F4ECF7', 
+                    padding: '2px 6px', 
+                    borderRadius: '8px',
+                    fontSize: '10px'
+                  }}>
+                    Mythical
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* Add to Analysis Button */}
+            <button
+              onClick={() => savePokemonToDistribution(pokemon)}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#27AE60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'background-color 0.3s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#229954'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#27AE60'}
+            >
+              Add to Analysis
+            </button>
           </div>
         ))}
       </div>
@@ -431,39 +643,6 @@ function PokemonRoles({ pokemonList = [] }) {
           <p>No Pokemon found matching your criteria.</p>
         </div>
       )}
-
-      {/* Role Statistics */}
-      <div style={{ marginTop: '50px', padding: '20px', backgroundColor: '#F8F9FA', borderRadius: '10px' }}>
-        <h3 style={{ color: '#2C3E50', marginBottom: '20px' }}>Available Roles</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-          {allRoles.slice(1).map(role => {
-            const count = allPokemon.filter(p => p.roles && p.roles.includes(role)).length;
-            return (
-              <div key={role} style={{ 
-                padding: '8px', 
-                backgroundColor: 'white', 
-                borderRadius: '5px',
-                borderLeft: `4px solid ${getRoleColor(role)}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <span style={{ fontSize: '12px', color: '#2C3E50' }}>{role}</span>
-                <span style={{ 
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
-                  color: getRoleColor(role),
-                  backgroundColor: getRoleColor(role) + '20',
-                  padding: '2px 6px',
-                  borderRadius: '10px'
-                }}>
-                  {count}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }

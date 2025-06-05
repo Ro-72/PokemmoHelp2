@@ -25,6 +25,14 @@ function AppWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Enhanced setSavedPokemon to also switch to EVs environment
+  const handleSetSavedPokemon = (pokemon) => {
+    setSavedPokemon(pokemon);
+    if (workEnv !== 'evs') {
+      setWorkEnv('evs');
+    }
+  };
+
   // Cambia de entorno y navega si es necesario
   const handleEnvChange = (env) => {
     setWorkEnv(env);
@@ -224,8 +232,8 @@ function AppWrapper() {
           </Routes>
         ) : (
           <Routes>
-            <Route path="/pokemon-roles" element={<PokemonRoles pokemonList={[]} />} />
-            <Route path="*" element={<PokemonRoles pokemonList={[]} />} />
+            <Route path="/pokemon-roles" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
+            <Route path="*" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
           </Routes>
         )}
       </main>
@@ -255,7 +263,7 @@ function AppWrapper() {
               ✖
             </button>
             <PokemonSearch
-              setSavedPokemon={setSavedPokemon}
+              setSavedPokemon={handleSetSavedPokemon}
               disableAutocomplete={false}
               onClose={() => setShowPokemonSearch(false)}
             />
