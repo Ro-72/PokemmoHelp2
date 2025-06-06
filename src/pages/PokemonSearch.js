@@ -96,11 +96,12 @@ function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }
           // Add more mappings if needed
 
           return {
-            name: move.name || '(desconocido)', // Name is not present in your JSON, so fallback
+            name: move.name || move.id || '(desconocido)', // Use move ID as fallback
             method,
             level: move.level ?? 'N/A',
             mtId: method === 'machine' ? move.id : null,
             breedingPartner: method === 'egg' ? (move.breedingPartner || null) : null,
+            type: move.move_type || null, // Add move type from the data
             raw: move // For debugging
           };
         });

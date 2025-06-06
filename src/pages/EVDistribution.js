@@ -13,7 +13,7 @@ import PokemonInfo from '../components/PokemonInfo';
 /* 
   ! Main Component: EVDistribution 
 */
-function EVDistribution({ savedPokemon }) {
+function EVDistribution({ savedPokemon, addToTeam }) {
   /* 
     * State Declarations 
   */
@@ -130,7 +130,18 @@ function EVDistribution({ savedPokemon }) {
   // Handler to receive selected moves from PokemonInfo
   const handleSaveMoves = (moves) => {
     setSelectedMoves(moves);
-    // Optionally, you can update savedPokemon.selectedMoves here if you want to persist in global state
+  };
+
+  // Enhanced addToTeam function that includes selected moves
+  const addToTeamWithMoves = (pokemon) => {
+    if (addToTeam) {
+      // Add selected moves to the pokemon object before adding to team
+      const pokemonWithSelectedMoves = {
+        ...pokemon,
+        selectedMoves: selectedMoves // Use the selected moves from EVDistribution state
+      };
+      addToTeam(pokemonWithSelectedMoves);
+    }
   };
 
   return (
@@ -176,6 +187,7 @@ function EVDistribution({ savedPokemon }) {
         */
         <PokemonInfo
           savedPokemon={savedPokemon}
+          addToTeam={addToTeamWithMoves}
           level={level}
           setLevel={setLevel}
           nature={nature}

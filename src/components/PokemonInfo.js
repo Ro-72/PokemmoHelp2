@@ -3,6 +3,7 @@ import itemsData from '../items.mock.data.json';
 
 function PokemonInfo({
   savedPokemon,
+  addToTeam,
   level,
   setLevel,
   nature,
@@ -28,11 +29,27 @@ function PokemonInfo({
       (m) => m.name === move.name && m.method === move.method && m.level === move.level
     );
     if (exists) {
-      setSelectedMoves(selectedMoves.filter(
+      const newSelectedMoves = selectedMoves.filter(
         (m) => !(m.name === move.name && m.method === move.method && m.level === move.level)
-      ));
+      );
+      setSelectedMoves(newSelectedMoves);
+      // Immediately notify parent of the change
+      if (onSaveMoves) {
+        onSaveMoves(newSelectedMoves);
+      }
     } else if (selectedMoves.length < 4) {
-      setSelectedMoves([...selectedMoves, move]);
+      // Include move type from fetched data when adding to selected moves
+      const moveWithType = {
+        ...move,
+        type: moveTypes[move.name] || 'normal', // Add the fetched type
+        damageClass: moveClasses[move.name] || 'status' // Add damage class too
+      };
+      const newSelectedMoves = [...selectedMoves, moveWithType];
+      setSelectedMoves(newSelectedMoves);
+      // Immediately notify parent of the change
+      if (onSaveMoves) {
+        onSaveMoves(newSelectedMoves);
+      }
     }
   };
 
@@ -41,7 +58,6 @@ function PokemonInfo({
     if (onSaveMoves) {
       onSaveMoves(selectedMoves);
     }
-    // Optionally, you can update savedPokemon.selectedMoves here if you want to persist in local state
   };
 
   // State for item input and suggestions
@@ -283,7 +299,46 @@ function PokemonInfo({
 
   return (
     <div className="pokemon-info" style={{ flex: 1, border: '1px solid #ccc', padding: '10px' }}>
-      <h3>Información del Pokémon Guardado</h3>
+      <div className="pokemon-info-header">
+        <div className="pokemon-basic-info">
+          <h3>{savedPokemon.name}</h3>
+          <p>#{savedPokemon.id}</p>
+          {addToTeam && (
+            <button
+              onClick={() => {
+                // Convert saved Pokemon to team format with current selected moves including types
+                const movesWithTypes = selectedMoves.map(move => ({
+                  ...move,
+                  type: moveTypes[move.name] || 'normal',
+                  damageClass: moveClasses[move.name] || 'status'
+                }));
+                
+                const teamPokemon = {
+                  id: savedPokemon.id,
+                  name: savedPokemon.name,
+                  sprite: savedPokemon.sprites?.front_default,
+                  types: savedPokemon.types?.map(type => type.type.name) || [],
+                  selectedMoves: movesWithTypes // Use moves with types
+                };
+                addToTeam(teamPokemon);
+              }}
+              style={{
+                backgroundColor: '#3498DB',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                marginTop: '10px',
+                fontWeight: 'bold'
+              }}
+            >
+              Add to Team
+            </button>
+          )}
+        </div>
+      </div>
       <img src={savedPokemon.sprites.front_default} alt={savedPokemon.name} />
       <p><strong>Nombre:</strong> {savedPokemon.name}</p>
       <p><strong>ID:</strong> {savedPokemon.id}</p>

@@ -9,10 +9,7 @@ const regions = [
   'Johto', 
   'Hoenn',
   'Sinnoh',
-  'Unova',
-  'Kalos',
-  'Alola',
-  'Galar'
+  'Unova'
 ];
 
 const tiers = [
@@ -36,15 +33,21 @@ const statusTypes = [
 // Extract unique roles from the complete data
 const getAllRoles = () => {
   const allRoles = new Set();
+  const excludedRoles = ['OU Viable', 'UU Viable', 'RU Viable', 'NU Viable', 'PU Viable', 'Uber Viable', 'LC Viable'];
+  
   completePokemonData.pokemon.forEach(pokemon => {
     if (pokemon.roles && Array.isArray(pokemon.roles)) {
-      pokemon.roles.forEach(role => allRoles.add(role));
+      pokemon.roles.forEach(role => {
+        if (!excludedRoles.includes(role)) {
+          allRoles.add(role);
+        }
+      });
     }
   });
   return ['All Roles', ...Array.from(allRoles).sort()];
 };
 
-function PokemonRoles({ setSavedPokemon }) {
+function PokemonRoles({ setSavedPokemon, addToTeam }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
   const [selectedRole, setSelectedRole] = useState('All Roles');
@@ -519,31 +522,6 @@ function PokemonRoles({ setSavedPokemon }) {
               </div>
             )}
 
-            {/* Key Moves */}
-            {pokemon.moves && Array.isArray(pokemon.moves) && pokemon.moves.length > 0 && (
-              <div style={{ marginBottom: '15px' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#34495E', fontSize: '14px' }}>Key Moves:</h4>
-                <div style={{ fontSize: '11px', color: '#7F8C8D', maxHeight: '60px', overflowY: 'auto' }}>
-                  {pokemon.moves.slice(0, 8).map((move, moveIndex) => (
-                    <span
-                      key={moveIndex}
-                      style={{
-                        display: 'inline-block',
-                        backgroundColor: '#F0F0F0',
-                        color: '#555',
-                        padding: '2px 6px',
-                        borderRadius: '8px',
-                        fontSize: '10px',
-                        margin: '2px'
-                      }}
-                    >
-                      {typeof move === 'string' ? move : move.name || 'Unknown Move'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Roles */}
             <div style={{ marginBottom: '15px' }}>
               <h4 style={{ margin: '0 0 8px 0', color: '#34495E', fontSize: '14px' }}>Competitive Roles:</h4>
@@ -615,25 +593,58 @@ function PokemonRoles({ setSavedPokemon }) {
             </div>
 
             {/* Add to Analysis Button */}
-            <button
-              onClick={() => savePokemonToDistribution(pokemon)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#27AE60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'background-color 0.3s'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#229954'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#27AE60'}
-            >
-              Add to Analysis
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => savePokemonToDistribution(pokemon)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  backgroundColor: '#27AE60',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#229954'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#27AE60'}
+              >
+                Add to Analysis
+              </button>
+              
+              {addToTeam && (
+                <button
+                  onClick={() => {
+                    // Convert Pokemon data to team format
+                    const teamPokemon = {
+                      id: pokemon.id,
+                      name: pokemon.name,
+                      sprite: pokemon.sprite,
+                      types: pokemon.types || []
+                    };
+                    addToTeam(teamPokemon);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    backgroundColor: '#3498DB',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.3s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#2980B9'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#3498DB'}
+                >
+                  Add to Team
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>

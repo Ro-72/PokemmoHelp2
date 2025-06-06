@@ -5,6 +5,7 @@ import EVDistribution from './pages/EVDistribution';
 import PokemonSearch from './pages/PokemonSearch';
 import BerriesPage from './pages/BerriesPage';
 import PokemonRoles from './pages/PokemonRoles';
+import TeamBuilder from './pages/TeamBuilder';
 
 // Lista de bayas de ejemplo (puedes expandirla o cargarla de un JSON)
 const berriesList = [
@@ -20,8 +21,9 @@ function AppWrapper() {
   const [savedPokemon, setSavedPokemon] = useState(null);
   const [showPokemonSearch, setShowPokemonSearch] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles'
+  const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles' | 'teambuilder'
   const [darkMode, setDarkMode] = useState(true);
+  const [team, setTeam] = useState(Array(6).fill(null)); // Shared team state
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -30,6 +32,23 @@ function AppWrapper() {
     setSavedPokemon(pokemon);
     if (workEnv !== 'evs') {
       setWorkEnv('evs');
+    }
+  };
+
+  // Add Pokemon to team
+  const addToTeam = (pokemon) => {
+    const emptySlotIndex = team.findIndex(slot => slot === null);
+    if (emptySlotIndex !== -1) {
+      const newTeam = [...team];
+      newTeam[emptySlotIndex] = pokemon;
+      setTeam(newTeam);
+      alert(`${pokemon.name} added to team slot ${emptySlotIndex + 1}!`);
+      
+      // Switch to team builder environment
+      setWorkEnv('teambuilder');
+      navigate('/team-builder');
+    } else {
+      alert('Team is full! Remove a Pokemon first.');
     }
   };
 
@@ -45,6 +64,9 @@ function AppWrapper() {
     }
     if (env === 'roles' && location.pathname !== '/pokemon-roles') {
       navigate('/pokemon-roles');
+    }
+    if (env === 'teambuilder' && location.pathname !== '/team-builder') {
+      navigate('/team-builder');
     }
   };
 
@@ -176,6 +198,22 @@ function AppWrapper() {
           >
             Pokemon Roles
           </button>
+          <button
+            style={{
+              background: workEnv === 'teambuilder' ? '#4caf50' : (darkMode ? '#23272b' : '#eee'),
+              color: workEnv === 'teambuilder' ? 'white' : (darkMode ? '#FFD600' : 'black'),
+              border: 'none',
+              borderRadius: '4px',
+              padding: '10px',
+              marginBottom: '10px',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left'
+            }}
+            onClick={() => handleEnvChange('teambuilder')}
+          >
+            Team Builder
+          </button>
         </div>
       )}
       {/* Drawer Overlay */}
@@ -218,22 +256,32 @@ function AppWrapper() {
             <Link to="/pokemon-roles" className="App-link">Pokemon Roles</Link>
           </nav>
         )}
+        {workEnv === 'teambuilder' && (
+          <nav>
+            <Link to="/team-builder" className="App-link">Team Builder</Link>
+          </nav>
+        )}
       </header>
       <main>
         {workEnv === 'evs' ? (
           <Routes>
-            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} />} />
-            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} />} />
+            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
+            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
           </Routes>
         ) : workEnv === 'berries' ? (
           <Routes>
             <Route path="/berries/*" element={<BerriesPage />} />
             <Route path="*" element={<BerriesPage />} />
           </Routes>
+        ) : workEnv === 'teambuilder' ? (
+          <Routes>
+            <Route path="/team-builder" element={<TeamBuilder team={team} setTeam={setTeam} />} />
+            <Route path="*" element={<TeamBuilder team={team} setTeam={setTeam} />} />
+          </Routes>
         ) : (
           <Routes>
-            <Route path="/pokemon-roles" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
-            <Route path="*" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
+            <Route path="/pokemon-roles" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} addToTeam={addToTeam} />} />
+            <Route path="*" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} addToTeam={addToTeam} />} />
           </Routes>
         )}
       </main>
@@ -264,6 +312,7 @@ function AppWrapper() {
             </button>
             <PokemonSearch
               setSavedPokemon={handleSetSavedPokemon}
+              addToTeam={addToTeam}
               disableAutocomplete={false}
               onClose={() => setShowPokemonSearch(false)}
             />
