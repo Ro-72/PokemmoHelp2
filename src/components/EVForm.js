@@ -27,7 +27,7 @@ function EVForm({
   return (
     <div className="ev-form">
       <h3>
-        Distribución de EVs
+        Distribution of EVs
         <span
           className="recommendation-icon"
           onClick={togglePopup}

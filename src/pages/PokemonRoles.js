@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import completePokemonData from '../complete_pokemon_data.json';
-import pokemonMovesData from '../pokemon_moves.json';
+import completePokemonData from '../data/complete_pokemon_data.json';
+import pokemonMovesData from '../data/pokemon_moves.json';
+import AddToAnalysisButton from '../components/AddToAnalysisButton';
 
 const regions = [
   'All Regions',
@@ -59,7 +60,7 @@ function PokemonRoles({ setSavedPokemon, addToTeam }) {
   
   const navigate = useNavigate();
   const allRoles = getAllRoles();
-  const allPokemon = completePokemonData.pokemon || [];
+  const allPokemon = useMemo(() => completePokemonData.pokemon || [], []);
 
   // Handle autocomplete suggestions
   useEffect(() => {
@@ -594,25 +595,10 @@ function PokemonRoles({ setSavedPokemon, addToTeam }) {
 
             {/* Add to Analysis Button */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button
-                onClick={() => savePokemonToDistribution(pokemon)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  backgroundColor: '#27AE60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s'
-                }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#229954'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#27AE60'}
-              >
-                Add to Analysis
-              </button>
+              <AddToAnalysisButton
+                pokemon={pokemon}
+                onClick={savePokemonToDistribution}
+              />
               
               {addToTeam && (
                 <button

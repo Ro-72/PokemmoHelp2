@@ -1,5 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import itemsData from '../items.mock.data.json';
+import itemsData from '../data/items.json';
+import { useTeam } from '../contexts/TeamContext';
+
+// Add type colors for move display
+const typeColors = {
+  'normal': '#A8A878',
+  'fire': '#F08030',
+  'water': '#6890F0',
+  'electric': '#F8D030',
+  'grass': '#78C850',
+  'ice': '#98D8D8',
+  'fighting': '#C03028',
+  'poison': '#A040A0',
+  'ground': '#E0C068',
+  'flying': '#A890F0',
+  'psychic': '#F85888',
+  'bug': '#A8B820',
+  'rock': '#B8A038',
+  'ghost': '#705898',
+  'dragon': '#7038F8',
+  'dark': '#705848',
+  'steel': '#B8B8D0',
+  'fairy': '#EE99AC'
+};
 
 function PokemonInfo({
   savedPokemon,
@@ -19,283 +42,174 @@ function PokemonInfo({
   groupMovesByMethod,
   getNatureLabel,
   onSaveMoves,
+  initialSelectedMoves = []
 }) {
-  // Track selected moves for this Pokémon
-  const [selectedMoves, setSelectedMoves] = useState(savedPokemon.selectedMoves || []);
+  const { currentPokemonId, updateCurrentPokemonAnalysis } = useTeam();
+  
+  // Initialize selected moves state with data from team/initialSelectedMoves
+  const [selectedMoves, setSelectedMoves] = useState(() => {
+    if (initialSelectedMoves.length > 0) {
+      return initialSelectedMoves;
+    }
+    if (savedPokemon?.selectedMoves) {
+      return savedPokemon.selectedMoves;
+    }
+    return [];
+  });
+
+  // Initialize item state
+  const [item, setItem] = useState(savedPokemon?.item || '');
+  const [itemSuggestions, setItemSuggestions] = useState([]);
+  const [showItemSuggestions, setShowItemSuggestions] = useState(false);
+
+  // Mock move types and classes - replace with actual data fetching
+  const [moveTypes, setMoveTypes] = useState({});
+  const [moveClasses, setMoveClasses] = useState({});
+
+  // Add missing state variables for move table functionality
+  const [expandedTab, setExpandedTab] = useState(null);
+  const [sortLevelAsc, setSortLevelAsc] = useState(true);
+  const [sortMovesAsc, setSortMovesAsc] = useState(true);
+  const [sortTypeAsc, setSortTypeAsc] = useState(null);
+
+  // Update selected moves when initialSelectedMoves changes
+  useEffect(() => {
+    if (initialSelectedMoves.length > 0) {
+      setSelectedMoves(initialSelectedMoves);
+      if (onSaveMoves) {
+        onSaveMoves(initialSelectedMoves);
+      }
+    }
+  }, [initialSelectedMoves, onSaveMoves]);
 
   // Handle move selection (max 4)
   const handleMoveSelect = (move) => {
     const exists = selectedMoves.some(
       (m) => m.name === move.name && m.method === move.method && m.level === move.level
     );
+    
+    let newSelectedMoves;
     if (exists) {
-      const newSelectedMoves = selectedMoves.filter(
+      newSelectedMoves = selectedMoves.filter(
         (m) => !(m.name === move.name && m.method === move.method && m.level === move.level)
       );
-      setSelectedMoves(newSelectedMoves);
-      // Immediately notify parent of the change
-      if (onSaveMoves) {
-        onSaveMoves(newSelectedMoves);
-      }
     } else if (selectedMoves.length < 4) {
       // Include move type from fetched data when adding to selected moves
       const moveWithType = {
         ...move,
-        type: moveTypes[move.name] || 'normal', // Add the fetched type
-        damageClass: moveClasses[move.name] || 'status' // Add damage class too
+        type: moveTypes[move.name] || 'normal',
+        damageClass: moveClasses[move.name] || 'status'
       };
-      const newSelectedMoves = [...selectedMoves, moveWithType];
-      setSelectedMoves(newSelectedMoves);
-      // Immediately notify parent of the change
-      if (onSaveMoves) {
-        onSaveMoves(newSelectedMoves);
-      }
+      newSelectedMoves = [...selectedMoves, moveWithType];
+    } else {
+      return; // Max moves reached
+    }
+    
+    setSelectedMoves(newSelectedMoves);
+    
+    // Immediately notify parent and team context of the change
+    if (onSaveMoves) {
+      onSaveMoves(newSelectedMoves);
+    }
+    
+    // Update team context if this is from team
+    if (currentPokemonId !== null) {
+      updateCurrentPokemonAnalysis({ selectedMoves: newSelectedMoves });
     }
   };
 
-  // Save selected moves to parent (if needed)
-  const handleSaveMoves = () => {
+  // Handle item search
+  const handleItemChange = (value) => {
+    setItem(value);
+    if (value.length > 0) {
+      const filtered = itemsData.items
+        .filter(item => item.name.toLowerCase().includes(value.toLowerCase()))
+        .slice(0, 5);
+      setItemSuggestions(filtered);
+      setShowItemSuggestions(true);
+    } else {
+      setItemSuggestions([]);
+      setShowItemSuggestions(false);
+    }
+  };
+
+  // Handle item suggestion click
+  const handleItemSuggestionClick = (suggestion) => {
+    setItem(suggestion.name || suggestion);
+    setItemSuggestions([]);
+    setShowItemSuggestions(false);
+  };
+
+  // Helper function to sort moves
+  const getSortedMoves = (moves) => {
+    if (!moves || moves.length === 0) return [];
+    
+    let sortedMoves = [...moves];
+    
+    if (expandedTab === 'level-up' && sortLevelAsc !== null) {
+      sortedMoves.sort((a, b) => {
+        const levelA = a.level || 0;
+        const levelB = b.level || 0;
+        return sortLevelAsc ? levelA - levelB : levelB - levelA;
+      });
+    } else if (sortMovesAsc !== null) {
+      sortedMoves.sort((a, b) => {
+        const nameA = a.name.toLowerCase();
+        const nameB = b.name.toLowerCase();
+        return sortMovesAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+    } else if (sortTypeAsc !== null) {
+      sortedMoves.sort((a, b) => {
+        const typeA = moveTypes[a.name] || 'normal';
+        const typeB = moveTypes[b.name] || 'normal';
+        return sortTypeAsc ? typeA.localeCompare(typeB) : typeB.localeCompare(typeA);
+      });
+    }
+    
+    return sortedMoves;
+  };
+
+  // Helper function to render move name
+  const renderMoveName = (move) => {
+    return move.name || 'Unknown Move';
+  };
+
+  // Handle download/save functionality
+  const handleDownloadShowdown = () => {
     if (onSaveMoves) {
       onSaveMoves(selectedMoves);
     }
+    alert('Moves saved successfully!');
   };
 
-  // State for item input and suggestions
-  const [item, setItem] = useState('');
-  const [itemSuggestions, setItemSuggestions] = useState([]);
-
-  useEffect(() => {
-    if (item.length > 0) {
-      const filtered = itemsData.Items.filter(i =>
-        i.toLowerCase().includes(item.toLowerCase())
-      ).slice(0, 5);
-      setItemSuggestions(filtered);
-    } else {
-      setItemSuggestions([]);
+  // Enhanced add to team function
+  const handleAddToTeam = () => {
+    if (addToTeam) {
+      // Convert saved Pokemon to team format with current analysis data
+      const movesWithTypes = selectedMoves.map(move => ({
+        ...move,
+        type: moveTypes[move.name] || 'normal',
+        damageClass: moveClasses[move.name] || 'status'
+      }));
+      
+      const teamPokemon = {
+        id: savedPokemon.id,
+        name: savedPokemon.name,
+        sprite: savedPokemon.sprites?.front_default,
+        types: savedPokemon.types?.map(type => type.type.name) || [],
+        selectedMoves: movesWithTypes,
+        level,
+        nature,
+        item,
+        evs,
+        ivs,
+        stats: savedPokemon.stats || [],
+        baseStats: savedPokemon.baseStats || {}
+      };
+      
+      addToTeam(teamPokemon);
     }
-  }, [item]);
-
-  const handleItemSuggestionClick = (suggestion) => {
-    setItem(suggestion);
-    setItemSuggestions([]);
   };
-
-  // Helper to convert stat mapping to Showdown format
-  const statShowdownMap = {
-    hp: 'HP',
-    attack: 'Atk',
-    defense: 'Def',
-    spAttack: 'SpA',
-    spDefense: 'SpD',
-    speed: 'Spe',
-  };
-
-  // Helper to convert nature to Showdown format
-  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
-
-  // Download as .txt in Showdown format
-  const handleDownloadShowdown = () => {
-    // Name and item
-    let lines = [];
-    let pokeName = capitalize(savedPokemon.name);
-    let itemLine = item ? ` @ ${item.replace(/-/g, ' ')}` : '';
-    lines.push(`${pokeName}${itemLine}`);
-
-    // Ability (not available in your data, so skip or add placeholder)
-    // lines.push(`Ability: ???`);
-
-    // Level
-    if (level) lines.push(`Level: ${level}`);
-
-    // Nature
-    if (nature && nature !== 'neutral') lines.push(`${capitalize(nature)} Nature`);
-
-    // EVs
-    const evParts = [];
-    for (const [key, val] of Object.entries(evs)) {
-      if (val > 0) evParts.push(`${val} ${statShowdownMap[key]}`);
-    }
-    if (evParts.length > 0) lines.push(`EVs: ${evParts.join(' / ')}`);
-
-    // IVs
-    const ivParts = [];
-    for (const [key, val] of Object.entries(ivs)) {
-      if (val < 31) ivParts.push(`${val} ${statShowdownMap[key]}`);
-    }
-    if (ivParts.length > 0) lines.push(`IVs: ${ivParts.join(' / ')}`);
-
-    // Moves
-    if (selectedMoves.length > 0) {
-      selectedMoves.forEach(move => {
-        if (move.name && move.name !== '(desconocido)') {
-          lines.push(`- ${capitalize(move.name.replace(/-/g, ' '))}`);
-        }
-      });
-    }
-
-    // Join lines and trigger download
-    const showdownText = lines.join('\n');
-    const blob = new Blob([showdownText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${pokeName}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // --- Move type and class fetching logic ---
-  const [moveTypes, setMoveTypes] = useState({}); // { moveName: type }
-  const [moveClasses, setMoveClasses] = useState({}); // { moveName: class }
-
-  useEffect(() => {
-    // Get all unique move names from savedPokemon.moves
-    if (!savedPokemon.moves) return;
-    const allMoves = savedPokemon.moves.map(m => m.name);
-    const uniqueMoves = Array.from(new Set(allMoves));
-    // Only fetch types/classes for moves not already in moveTypes/moveClasses
-    const toFetch = uniqueMoves.filter(name => !moveTypes[name] || !moveClasses[name]);
-    if (toFetch.length === 0) return;
-
-    // Fetch type and class for each move from PokéAPI
-    const fetchTypesAndClasses = async () => {
-      const newTypes = {};
-      const newClasses = {};
-      await Promise.all(
-        toFetch.map(async (moveName) => {
-          try {
-            // PokéAPI expects move names in kebab-case
-            const apiName = moveName.toLowerCase().replace(/ /g, '-');
-            const res = await fetch(`https://pokeapi.co/api/v2/move/${apiName}`);
-            if (res.ok) {
-              const data = await res.json();
-              newTypes[moveName] = data.type.name;
-              newClasses[moveName] = data.damage_class.name; // 'physical', 'special', 'status'
-            } else {
-              newTypes[moveName] = 'normal'; // fallback
-              newClasses[moveName] = 'status'; // fallback
-            }
-          } catch {
-            newTypes[moveName] = 'normal';
-            newClasses[moveName] = 'status';
-          }
-        })
-      );
-      setMoveTypes(prev => ({ ...prev, ...newTypes }));
-      setMoveClasses(prev => ({ ...prev, ...newClasses }));
-    };
-    fetchTypesAndClasses();
-    // eslint-disable-next-line
-  }, [savedPokemon.moves]);
-
-  // --- Type color mapping ---
-  const typeColors = {
-    normal: '#BDBDBD',
-    fire: '#FF7043',
-    water: '#29B6F6',
-    electric: '#FFD600',
-    grass: '#66BB6A',
-    ice: '#81D4FA',
-    fighting: '#D84315',
-    poison: '#AB47BC',
-    ground: '#D7CCC8',
-    flying: '#90CAF9',
-    psychic: '#F06292',
-    bug: '#AEEA00',
-    rock: '#A1887F',
-    ghost: '#7E57C2',
-    dragon: '#1976D2',
-    dark: '#616161',
-    steel: '#90A4AE',
-    fairy: '#F8BBD0',
-    // ...add more if needed
-  };
-
-  // Helper to render move name with color by type and style by class
-  function renderMoveName(move) {
-    const type = moveTypes[move.name] || 'normal';
-    const color = typeColors[type] || '#BDBDBD';
-    const moveClass = moveClasses[move.name] || 'status';
-    let style = { color };
-    let content = move.name;
-
-    // Apply formatting based on move class
-    if (moveClass === 'physical') {
-      style.fontWeight = 'bold';
-      style.fontSize = '1.15em';
-      content = <b>{content}</b>;
-    } else if (moveClass === 'special') {
-      content = <i>{content}</i>;
-    } else if (moveClass === 'status') {
-      content = <u>{content}</u>;
-    }
-
-    // Build the URL for the move (replace spaces with '-')
-    const moveUrl = `https://pokemondb.net/move/${move.name.toLowerCase().replace(/ /g, '-')}`;
-
-    return (
-      <a
-        href={moveUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ textDecoration: 'none' }}
-      >
-        <span style={style}>
-          {content}
-        </span>
-      </a>
-    );
-  }
-
-  // State for sorting moves by name and level and type
-  const [sortMovesAsc, setSortMovesAsc] = useState(true);
-  const [sortLevelAsc, setSortLevelAsc] = useState(true);
-  const [sortTypeAsc, setSortTypeAsc] = useState(null); // null means not sorting by type
-
-  // Helper to get sorted moves for the current tab
-  function getSortedMoves(moves) {
-    if (!moves) return [];
-    const movesArr = [...moves];
-    // Sort by type if requested
-    if (sortTypeAsc !== null) {
-      movesArr.sort((a, b) => {
-        const typeA = (moveTypes[a.name] || 'normal').toLowerCase();
-        const typeB = (moveTypes[b.name] || 'normal').toLowerCase();
-        if (typeA < typeB) return sortTypeAsc ? -1 : 1;
-        if (typeA > typeB) return sortTypeAsc ? 1 : -1;
-        // If types are equal, fallback to name
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
-        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
-        return 0;
-      });
-    } else if (activeTab === 'level-up') {
-      movesArr.sort((a, b) => {
-        const levelA = a.level !== undefined ? a.level : 0;
-        const levelB = b.level !== undefined ? b.level : 0;
-        if (levelA < levelB) return sortLevelAsc ? -1 : 1;
-        if (levelA > levelB) return sortLevelAsc ? 1 : -1;
-        // If levels are equal, fallback to name
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
-        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
-        return 0;
-      });
-    } else {
-      movesArr.sort((a, b) => {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        if (nameA < nameB) return sortMovesAsc ? -1 : 1;
-        if (nameA > nameB) return sortMovesAsc ? 1 : -1;
-        return 0;
-      });
-    }
-    return movesArr;
-  }
 
   return (
     <div className="pokemon-info" style={{ flex: 1, border: '1px solid #ccc', padding: '10px' }}>
@@ -303,25 +217,15 @@ function PokemonInfo({
         <div className="pokemon-basic-info">
           <h3>{savedPokemon.name}</h3>
           <p>#{savedPokemon.id}</p>
-          {addToTeam && (
+          {/* Show team slot info if from team */}
+          {currentPokemonId !== null && (
+            <p style={{ fontSize: '12px', color: '#666' }}>
+              Team Slot: {currentPokemonId + 1}
+            </p>
+          )}
+          {addToTeam && currentPokemonId === null && (
             <button
-              onClick={() => {
-                // Convert saved Pokemon to team format with current selected moves including types
-                const movesWithTypes = selectedMoves.map(move => ({
-                  ...move,
-                  type: moveTypes[move.name] || 'normal',
-                  damageClass: moveClasses[move.name] || 'status'
-                }));
-                
-                const teamPokemon = {
-                  id: savedPokemon.id,
-                  name: savedPokemon.name,
-                  sprite: savedPokemon.sprites?.front_default,
-                  types: savedPokemon.types?.map(type => type.type.name) || [],
-                  selectedMoves: movesWithTypes // Use moves with types
-                };
-                addToTeam(teamPokemon);
-              }}
+              onClick={handleAddToTeam}
               style={{
                 backgroundColor: '#3498DB',
                 color: 'white',
@@ -340,10 +244,10 @@ function PokemonInfo({
         </div>
       </div>
       <img src={savedPokemon.sprites.front_default} alt={savedPokemon.name} />
-      <p><strong>Nombre:</strong> {savedPokemon.name}</p>
+      <p><strong>Name:</strong> {savedPokemon.name}</p>
       <p><strong>ID:</strong> {savedPokemon.id}</p>
       <div style={{ marginBottom: '10px' }}>
-        <label htmlFor="level">Nivel:</label>
+        <label htmlFor="level">Level:</label>
         <input
           id="level"
           type="number"
@@ -355,7 +259,7 @@ function PokemonInfo({
         />
       </div>
       <div style={{ marginBottom: '10px' }}>
-        <label htmlFor="nature">Naturaleza:</label>
+        <label htmlFor="nature">Nature:</label>
         <select
           id="nature"
           value={nature}
@@ -371,17 +275,17 @@ function PokemonInfo({
       </div>
       {/* New Item input with autocomplete */}
       <div style={{ marginBottom: '10px', position: 'relative' }}>
-        <label htmlFor="item">Objeto:</label>
+        <label htmlFor="item">Item:</label>
         <input
           id="item"
           type="text"
-          placeholder="Buscar objeto"
+          placeholder="Search item"
           value={item}
-          onChange={e => setItem(e.target.value)}
+          onChange={e => handleItemChange(e.target.value)}
           style={{ marginLeft: '10px', width: '150px' }}
           autoComplete="off"
         />
-        {itemSuggestions.length > 0 && (
+        {showItemSuggestions && itemSuggestions.length > 0 && (
           <ul
             style={{
               position: 'absolute',
@@ -401,14 +305,14 @@ function PokemonInfo({
                 style={{ cursor: 'pointer', padding: '2px 0' }}
                 onClick={() => handleItemSuggestionClick(suggestion)}
               >
-                {suggestion}
+                {suggestion.name || suggestion}
               </li>
             ))}
           </ul>
         )}
       </div>
       <div>
-        <h4>Estadísticas:</h4>
+        <h4>Stats:</h4>
         {savedPokemon.stats.map((stat, index) => {
           const isHP = stat.stat.name.toLowerCase() === 'hp';
           const mappedStat = statMapping[stat.stat.name.toLowerCase()];
@@ -442,15 +346,18 @@ function PokemonInfo({
       </div>
       {savedPokemon.strategyUrl && (
         <div style={{ marginTop: '10px' }}>
-          <h4>Enlace a Estrategia:</h4>
+          <h4>Strategy Link:</h4>
           <a href={savedPokemon.strategyUrl} target="_blank" rel="noopener noreferrer">
-            Ver estrategia en Pokexperto
+            View strategy on Pokexperto
           </a>
         </div>
       )}
       {savedPokemon.moves && (
         <div style={{ marginTop: '20px' }}>
-          <h4>Movimientos:</h4>
+          <h4>Moves:</h4>
+          <div style={{ marginBottom: '10px', fontSize: '12px', color: '#666' }}>
+            Selected: {selectedMoves.length}/4 moves
+          </div>
           <div style={{ display: 'flex', marginBottom: '10px' }}>
             {['level-up', 'machine', 'egg', 'tutor'].map((method) => (
               <button
@@ -459,152 +366,189 @@ function PokemonInfo({
                   flex: 1,
                   padding: '10px',
                   cursor: 'pointer',
-                  backgroundColor: activeTab === method ? '#4caf50' : '#f0f0f0',
-                  color: activeTab === method ? 'white' : 'black',
+                  backgroundColor: expandedTab === method ? '#4caf50' : '#f0f0f0',
+                  color: expandedTab === method ? 'white' : 'black',
                   border: '1px solid #ccc',
                   borderRadius: '5px',
                 }}
-                onClick={() => setActiveTab(method)}
+                onClick={() => setExpandedTab(expandedTab === method ? null : method)}
               >
-                {method === 'level-up' && 'Por Nivel'}
-                {method === 'machine' && 'Por MT/MO'}
-                {method === 'egg' && 'Por Huevo'}
-                {method === 'tutor' && 'Por Tutor'}
+                {method === 'level-up' && 'By Level'}
+                {method === 'machine' && 'By TM/HM'}
+                {method === 'egg' && 'By Egg'}
+                {method === 'tutor' && 'By Tutor'}
               </button>
             ))}
           </div>
-          <form>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-              <thead>
-                <tr>
-                  <th style={{ border: '1px solid #ccc', padding: '5px' }}></th>
-                  {activeTab === 'level-up' && (
+          {/* Only show the moves table for the expanded tab */}
+          {['level-up', 'machine', 'egg', 'tutor'].includes(expandedTab) && (
+            <form>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ border: '1px solid #ccc', padding: '5px' }}></th>
+                    {expandedTab === 'level-up' && (
+                      <th
+                        style={{ border: '1px solid #ccc', padding: '5px', cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => {
+                          setSortTypeAsc(null);
+                          setSortLevelAsc((prev) => !prev);
+                        }}
+                        title="Sort by level"
+                      >
+                        Level {sortLevelAsc ? '▲' : '▼'}
+                      </th>
+                    )}
                     <th
                       style={{ border: '1px solid #ccc', padding: '5px', cursor: 'pointer', userSelect: 'none' }}
                       onClick={() => {
                         setSortTypeAsc(null);
-                        setSortLevelAsc((prev) => !prev);
+                        setSortMovesAsc((prev) => !prev);
                       }}
-                      title="Ordenar por nivel"
+                      title="Sort by name"
                     >
-                      Nivel {sortLevelAsc ? '▲' : '▼'}
+                      Move {sortMovesAsc ? '▲' : '▼'}
                     </th>
-                  )}
-                  <th
-                    style={{ border: '1px solid #ccc', padding: '5px', cursor: 'pointer', userSelect: 'none' }}
-                    onClick={() => {
-                      setSortTypeAsc(null);
-                      setSortMovesAsc((prev) => !prev);
-                    }}
-                    title="Ordenar por nombre"
-                  >
-                    Movimiento {sortMovesAsc ? '▲' : '▼'}
-                  </th>
-                  <th
-                    style={{
-                      border: '1px solid #ccc',
-                      padding: '5px',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                      minWidth: '80px'
-                    }}
-                    onClick={() => setSortTypeAsc((prev) => prev === null ? true : !prev)}
-                    title="Ordenar por tipo"
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                      <span>Tipo</span>
-                      <span>
-                        {sortTypeAsc === null
-                          ? '▲'
-                          : (sortTypeAsc ? '▲' : '▼')}
-                      </span>
-                    </div>
-                  </th>
-                  {activeTab === 'machine' && (
-                    <th style={{ border: '1px solid #ccc', padding: '5px' }}>MT/MO</th>
-                  )}
-                  {activeTab === 'egg' && (
-                    <th style={{ border: '1px solid #ccc', padding: '5px' }}>Compañero de cría</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {getSortedMoves(groupMovesByMethod(savedPokemon.moves)[activeTab])?.map((move, index) => (
-                  <tr key={index}>
-                    <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedMoves.some(
-                          (m) => m.name === move.name && m.method === move.method && m.level === move.level
-                        )}
-                        onChange={() => handleMoveSelect(move)}
-                        disabled={
-                          !selectedMoves.some(
-                            (m) => m.name === move.name && m.method === move.method && m.level === move.level
-                          ) && selectedMoves.length >= 4
-                        }
-                      />
-                    </td>
-                    {activeTab === 'level-up' && (
-                      <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
-                        {move.level !== undefined ? move.level : 'N/A'}
-                      </td>
+                    <th
+                      style={{
+                        border: '1px solid #ccc',
+                        padding: '5px',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        minWidth: '80px'
+                      }}
+                      onClick={() => setSortTypeAsc((prev) => prev === null ? true : !prev)}
+                      title="Sort by type"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <span>Type</span>
+                        <span>
+                          {sortTypeAsc === null
+                            ? '▲'
+                            : (sortTypeAsc ? '▲' : '▼')}
+                        </span>
+                      </div>
+                    </th>
+                    {expandedTab === 'machine' && (
+                      <th style={{ border: '1px solid #ccc', padding: '5px' }}>TM/HM</th>
                     )}
-                    <td style={{ border: '1px solid #ccc', padding: '5px' }}>
-                      {renderMoveName(move)}
-                    </td>
-                    <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
-                      {/* Show type with color background */}
-                      {(() => {
-                        const type = moveTypes[move.name] || 'normal';
-                        const color = typeColors[type] || '#BDBDBD';
-                        return (
-                          <span style={{
-                            background: color,
-                            color: '#fff',
-                            borderRadius: '6px',
-                            fontSize: '0.9em',
-                            padding: '2px 8px',
-                            fontWeight: 'bold'
-                          }}>
-                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    {activeTab === 'machine' && (
-                      <td style={{ border: '1px solid #ccc', padding: '5px' }}>
-                        {move.mtId || move.id || 'N/A'}
-                      </td>
-                    )}
-                    {activeTab === 'egg' && (
-                      <td style={{ border: '1px solid #ccc', padding: '5px' }}>
-                        {move.breedingPartner || 'N/A'}
-                      </td>
+                    {expandedTab === 'egg' && (
+                      <th style={{ border: '1px solid #ccc', padding: '5px' }}>Breeding Partner</th>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </form>
+                </thead>
+                <tbody>
+                  {getSortedMoves(groupMovesByMethod(savedPokemon.moves)[expandedTab])?.map((move, index) => (
+                    <tr key={index}>
+                      <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedMoves.some(
+                            (m) => m.name === move.name && m.method === move.method && m.level === move.level
+                          )}
+                          onChange={() => handleMoveSelect(move)}
+                          disabled={
+                            !selectedMoves.some(
+                              (m) => m.name === move.name && m.method === move.method && m.level === move.level
+                            ) && selectedMoves.length >= 4
+                          }
+                        />
+                      </td>
+                      {expandedTab === 'level-up' && (
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
+                          {move.level !== undefined ? move.level : 'N/A'}
+                        </td>
+                      )}
+                      <td style={{ border: '1px solid #ccc', padding: '5px' }}>
+                        {renderMoveName(move)}
+                      </td>
+                      <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>
+                        {/* Show type with color background */}
+                        {(() => {
+                          const type = moveTypes[move.name] || 'normal';
+                          const color = typeColors[type] || '#BDBDBD';
+                          return (
+                            <span style={{
+                              background: color,
+                              color: '#fff',
+                              borderRadius: '6px',
+                              fontSize: '0.9em',
+                              padding: '2px 8px',
+                              fontWeight: 'bold'
+                            }}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      {expandedTab === 'machine' && (
+                        <td style={{ border: '1px solid #ccc', padding: '5px' }}>
+                          {move.mtId || move.id || 'N/A'}
+                        </td>
+                      )}
+                      {expandedTab === 'egg' && (
+                        <td style={{ border: '1px solid #ccc', padding: '5px' }}>
+                          {move.breedingPartner || 'N/A'}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </form>
+          )}
+          
           <button
             style={{ marginTop: '10px', padding: '5px 10px' }}
             onClick={handleDownloadShowdown}
             type="button"
             disabled={selectedMoves.length === 0}
           >
-            Guardar
+            Save
           </button>
+          
           {selectedMoves.length > 0 && (
             <div style={{ marginTop: '15px' }}>
-              <h5>Movimientos Guardados:</h5>
+              <h5>Saved Moves:</h5>
               <ul>
                 {selectedMoves.map((move, idx) => (
                   <li key={idx}>{move.name}</li>
                 ))}
               </ul>
+            </div>
+          )}
+          
+          {/* Show selected moves summary */}
+          {selectedMoves.length > 0 && (
+            <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f0f8ff', borderRadius: '5px' }}>
+              <h5 style={{ margin: '0 0 10px 0' }}>Selected Moves ({selectedMoves.length}/4):</h5>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '5px' }}>
+                {selectedMoves.map((move, idx) => (
+                  <div key={idx} style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#e8f4fd',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    border: '1px solid #d0e8f2'
+                  }}>
+                    <strong>{move.name}</strong>
+                    {move.type && (
+                      <span style={{
+                        marginLeft: '8px',
+                        padding: '1px 4px',
+                        backgroundColor: typeColors[move.type] || '#ccc',
+                        color: 'white',
+                        borderRadius: '3px',
+                        fontSize: '10px'
+                      }}>
+                        {move.type}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Link, Routes, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
-import EVDistribution from './pages/EVDistribution';
+import EVDistribution from './pages/Analyser';
 import PokemonSearch from './pages/PokemonSearch';
 import BerriesPage from './pages/BerriesPage';
 import PokemonRoles from './pages/PokemonRoles';
 import TeamBuilder from './pages/TeamBuilder';
-
-// Lista de bayas de ejemplo (puedes expandirla o cargarla de un JSON)
-const berriesList = [
-  { name: 'Cheri Berry', effect: 'Cura parálisis', growth: '24h', color: 'Roja' },
-  { name: 'Chesto Berry', effect: 'Cura sueño', growth: '24h', color: 'Azul' },
-  { name: 'Pecha Berry', effect: 'Cura envenenamiento', growth: '24h', color: 'Rosa' },
-  { name: 'Oran Berry', effect: 'Restaura 10 PS', growth: '24h', color: 'Celeste' },
-  { name: 'Sitrus Berry', effect: 'Restaura 25% PS', growth: '24h', color: 'Amarilla' },
-  // ...agrega más bayas si lo deseas...
-];
+import { TeamProvider, useTeam } from './contexts/TeamContext';
 
 function AppWrapper() {
   const [savedPokemon, setSavedPokemon] = useState(null);
@@ -23,9 +14,9 @@ function AppWrapper() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles' | 'teambuilder'
   const [darkMode, setDarkMode] = useState(true);
-  const [team, setTeam] = useState(Array(6).fill(null)); // Shared team state
   const navigate = useNavigate();
   const location = useLocation();
+  const { team, updatePokemon, setCurrentPokemon } = useTeam();
 
   // Enhanced setSavedPokemon to also switch to EVs environment
   const handleSetSavedPokemon = (pokemon) => {
@@ -39,10 +30,29 @@ function AppWrapper() {
   const addToTeam = (pokemon) => {
     const emptySlotIndex = team.findIndex(slot => slot === null);
     if (emptySlotIndex !== -1) {
-      const newTeam = [...team];
-      newTeam[emptySlotIndex] = pokemon;
-      setTeam(newTeam);
+      updatePokemon(emptySlotIndex, pokemon);
       alert(`${pokemon.name} added to team slot ${emptySlotIndex + 1}!`);
+      
+      // Switch to team builder environment
+      setWorkEnv('teambuilder');
+      navigate('/team-builder');
+    } else {
+      alert('Team is full! Remove a Pokemon first.');
+    }
+  };
+
+  // Enhanced add to team for analysis with slot selection
+  const addToTeamFromAnalysis = (pokemon, preferredSlot = null) => {
+    let targetSlot = preferredSlot;
+    
+    if (targetSlot === null || targetSlot < 0 || targetSlot >= 6 || team[targetSlot] !== null) {
+      targetSlot = team.findIndex(slot => slot === null);
+    }
+    
+    if (targetSlot !== -1) {
+      updatePokemon(targetSlot, pokemon);
+      setCurrentPokemon(targetSlot);
+      alert(`${pokemon.name} added to team slot ${targetSlot + 1}!`);
       
       // Switch to team builder environment
       setWorkEnv('teambuilder');
@@ -90,7 +100,7 @@ function AppWrapper() {
           boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
         }}
         onClick={() => setDrawerOpen(true)}
-        aria-label="Abrir menú de entornos"
+        aria-label="Open environments menu"
       >
         ☰
       </button>
@@ -145,11 +155,11 @@ function AppWrapper() {
               color: darkMode ? '#FFD600' : '#222'
             }}
             onClick={() => setDrawerOpen(false)}
-            aria-label="Cerrar menú"
+            aria-label="Close menu"
           >
             ✖
           </button>
-          <h4>Entornos de trabajo</h4>
+          <h4>Work Environments</h4>
           <button
             style={{
               background: workEnv === 'evs' ? '#4caf50' : (darkMode ? '#23272b' : '#eee'),
@@ -164,7 +174,7 @@ function AppWrapper() {
             }}
             onClick={() => handleEnvChange('evs')}
           >
-            Entrenadores Values Pokémon
+            Pokemon Analyser
           </button>
           <button
             style={{
@@ -235,20 +245,20 @@ function AppWrapper() {
         <h1>POKEMMO Helper</h1>
         {workEnv === 'evs' && (
           <nav>
-            <Link to="/ev-distribution" className="App-link">Distribución de EVs</Link>
+            <Link to="/ev-distribution" className="App-link">Distribution</Link>
             <Link
               to="#"
               className="App-link"
               onClick={() => setShowPokemonSearch(true)}
             >
-              Buscar Pokémon
+              Search Pokemon
             </Link>
           </nav>
         )}
         {workEnv === 'berries' && (
           <nav>
-            <Link to="/berries/list" className="App-link">Lista de Bayas</Link>
-            <Link to="/berries/simulation" className="App-link">Simulación de Plantación</Link>
+            <Link to="/berries/list" className="App-link">Berry List</Link>
+            <Link to="/berries/simulation" className="App-link">Planting Simulation</Link>
           </nav>
         )}
         {workEnv === 'roles' && (
@@ -265,8 +275,8 @@ function AppWrapper() {
       <main>
         {workEnv === 'evs' ? (
           <Routes>
-            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
-            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
+            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeamFromAnalysis} />} />
+            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeamFromAnalysis} />} />
           </Routes>
         ) : workEnv === 'berries' ? (
           <Routes>
@@ -275,8 +285,8 @@ function AppWrapper() {
           </Routes>
         ) : workEnv === 'teambuilder' ? (
           <Routes>
-            <Route path="/team-builder" element={<TeamBuilder team={team} setTeam={setTeam} />} />
-            <Route path="*" element={<TeamBuilder team={team} setTeam={setTeam} />} />
+            <Route path="/team-builder" element={<TeamBuilder setSavedPokemon={handleSetSavedPokemon} />} />
+            <Route path="*" element={<TeamBuilder setSavedPokemon={handleSetSavedPokemon} />} />
           </Routes>
         ) : (
           <Routes>
@@ -335,11 +345,13 @@ function AppWrapper() {
   );
 }
 
-// Necesario para usar useNavigate en el componente principal
+// Wrap the main app with TeamProvider
 function App() {
   return (
     <Router>
-      <AppWrapper />
+      <TeamProvider>
+        <AppWrapper />
+      </TeamProvider>
     </Router>
   );
 }

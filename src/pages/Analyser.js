@@ -1,7 +1,7 @@
 /* 
   ! Imports and Constants 
 */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import recomendations from '../data/recomend.json';
 import natureMultipliers from '../data/natureMultipliers.json';
 import '../App.css';
@@ -9,91 +9,43 @@ import RecommendationPopup from '../components/RecommendationPopup';
 import EVForm from '../components/EVForm';
 import IVForm from '../components/IVForm';
 import PokemonInfo from '../components/PokemonInfo';
-import { useTeam } from '../contexts/TeamContext';
 
 /* 
   ! Main Component: EVDistribution 
 */
 function EVDistribution({ savedPokemon, addToTeam }) {
-  const { getCurrentPokemon, updateCurrentPokemonAnalysis, currentPokemonId } = useTeam();
-  
   /* 
     * State Declarations 
   */
   const maxEV = 510;
   const maxIV = 186; // Maximum total IVs
-  
-  // Get current Pokemon from team context or use savedPokemon
-  const currentTeamPokemon = getCurrentPokemon();
-  const activePokemon = currentTeamPokemon || savedPokemon;
-  
-  // Initialize states with Pokemon data if available
-  const [evs, setEvs] = useState(() => {
-    if (activePokemon && activePokemon.evs) {
-      return activePokemon.evs;
-    }
-    return {
-      hp: 0,
-      attack: 0,
-      defense: 0,
-      spAttack: 0,
-      spDefense: 0,
-      speed: 0,
-    };
+  const [evs, setEvs] = useState({
+    hp: 0,
+    attack: 0,
+    defense: 0,
+    spAttack: 0,
+    spDefense: 0,
+    speed: 0,
   });
-  
-  const [ivs, setIvs] = useState(() => {
-    if (activePokemon && activePokemon.ivs) {
-      return activePokemon.ivs;
-    }
-    return {
-      hp: 0,
-      attack: 0,
-      defense: 0,
-      spAttack: 0,
-      spDefense: 0,
-      speed: 0,
-    };
+  const [ivs, setIvs] = useState({
+    hp: 0,
+    attack: 0,
+    defense: 0,
+    spAttack: 0,
+    spDefense: 0,
+    speed: 0,
   });
-  
   const [region, setRegion] = useState('Unova');
-  const [level, setLevel] = useState(() => activePokemon?.level || 70);
-  const [nature, setNature] = useState(() => activePokemon?.nature || 'neutral');
-  const [expandedTab, setExpandedTab] = useState(null);
-  const [activeTab, setActiveTab] = useState('level-up');
+  const [level, setLevel] = useState(70); // Default level
+  const [nature, setNature] = useState('neutral'); // Default nature
+  const [expandedTab, setExpandedTab] = useState(null); // Track which tab is expanded
+  const [activeTab, setActiveTab] = useState('level-up'); // Track the active tab
+  /* 
+    * Popup: Recommendations
+    ? Moved to <RecommendationPopup /> component
+  */
   const [showPopup, setShowPopup] = useState(false);
-  const [selectedMoves, setSelectedMoves] = useState(() => activePokemon?.selectedMoves || []);
-
-  // Update states when active Pokemon changes
-  useEffect(() => {
-    if (activePokemon) {
-      if (activePokemon.evs) setEvs(activePokemon.evs);
-      if (activePokemon.ivs) setIvs(activePokemon.ivs);
-      if (activePokemon.level) setLevel(activePokemon.level);
-      if (activePokemon.nature) setNature(activePokemon.nature);
-      if (activePokemon.selectedMoves) setSelectedMoves(activePokemon.selectedMoves);
-    }
-  }, [activePokemon]);
-
-  // Sync changes back to team context
-  useEffect(() => {
-    if (currentTeamPokemon && currentPokemonId !== null) {
-      const analysisData = {
-        evs,
-        ivs,
-        level,
-        nature,
-        selectedMoves
-      };
-      
-      // Debounce updates to avoid excessive saves
-      const timeoutId = setTimeout(() => {
-        updateCurrentPokemonAnalysis(analysisData);
-      }, 500);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [evs, ivs, level, nature, selectedMoves, currentTeamPokemon, currentPokemonId, updateCurrentPokemonAnalysis]);
+  const [selectedMoves, setSelectedMoves] = useState([]);
 
   const statMapping = {
     'hp': 'hp',
@@ -183,22 +135,22 @@ function EVDistribution({ savedPokemon, addToTeam }) {
   // Enhanced addToTeam function that includes selected moves
   const addToTeamWithMoves = (pokemon) => {
     if (addToTeam) {
-      // Add current analysis data to the pokemon object
-      const pokemonWithAnalysisData = {
+      // Add selected moves to the pokemon object before adding to team
+      const pokemonWithSelectedMoves = {
         ...pokemon,
-        selectedMoves,
-        evs,
-        ivs,
-        level,
-        nature
+        selectedMoves: selectedMoves // Use the selected moves from EVDistribution state
       };
-      addToTeam(pokemonWithAnalysisData);
+      addToTeam(pokemonWithSelectedMoves);
     }
   };
 
   return (
-    <div className="ev-container">
-      <div className="ev-iv-column">
+    <div
+      className="ev-container"
+    >
+      <div
+        className="ev-iv-column"
+      >
         {/* 
           * EV Distribution Form
           ? Replaced with <EVForm /> component
@@ -228,13 +180,13 @@ function EVDistribution({ savedPokemon, addToTeam }) {
         />
       </div>
 
-      {activePokemon && (
+      {savedPokemon && (
         /* 
           * Saved Pokémon Information
           ? Replaced with <PokemonInfo /> component
         */
         <PokemonInfo
-          savedPokemon={activePokemon}
+          savedPokemon={savedPokemon}
           addToTeam={addToTeamWithMoves}
           level={level}
           setLevel={setLevel}
@@ -251,7 +203,6 @@ function EVDistribution({ savedPokemon, addToTeam }) {
           groupMovesByMethod={utils.groupMovesByMethod}
           getNatureLabel={utils.getNatureLabel}
           onSaveMoves={handleSaveMoves}
-          initialSelectedMoves={selectedMoves}
         />
       )}
 

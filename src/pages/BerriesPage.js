@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import BerriesList from './BerriesList';
 import BerriesSimulation from './BerriesSimulation';
 
 function BerriesPage() {
-  const navigate = useNavigate();
   const [berriesList, setBerriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
@@ -40,9 +39,9 @@ function BerriesPage() {
               try {
                 const itemRes = await fetch(berryData.item.url);
                 const itemData = await itemRes.json();
-                // Find effect in Spanish, fallback to English
-                const effectEntry = itemData.effect_entries.find(e => e.language.name === 'es') ||
-                                    itemData.effect_entries.find(e => e.language.name === 'en');
+                // Find effect in English, fallback to Spanish
+                const effectEntry = itemData.effect_entries.find(e => e.language.name === 'en') ||
+                                    itemData.effect_entries.find(e => e.language.name === 'es');
                 effect = effectEntry ? effectEntry.short_effect : '';
                 // Try to get the sprite from itemData.sprites.default
                 sprite = itemData.sprites?.default || '';
@@ -75,7 +74,7 @@ function BerriesPage() {
           path="/list"
           element={
             loading
-              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Cargando bayas...</div>
+              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Loading berries...</div>
               : <BerriesList berriesList={berriesList} />
           }
         />
@@ -83,7 +82,7 @@ function BerriesPage() {
           path="/simulation"
           element={
             loading
-              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Cargando bayas...</div>
+              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Loading berries...</div>
               : <BerriesSimulation berriesList={berriesList} darkMode={darkMode} />
           }
         />
@@ -91,7 +90,7 @@ function BerriesPage() {
           path="*"
           element={
             loading
-              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Cargando bayas...</div>
+              ? <div className={darkMode ? 'berries-loading dark-mode' : 'berries-loading'}>Loading berries...</div>
               : <BerriesList berriesList={berriesList} />
           }
         />

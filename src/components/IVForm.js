@@ -27,7 +27,7 @@ function IVForm({ ivs, setIvs, maxIV, handleChange }) {
 
   return (
     <div className="iv-form">
-      <h3>Distribución de IVs</h3>
+      <h3>Distribution of IVs</h3>
       {Object.keys(ivs).map((stat) => (
         <div key={stat} style={{ marginBottom: '10px' }}>
           <label htmlFor={`iv-${stat}`}>IV {stat.toUpperCase()}:</label>

@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import completePokemonData from '../complete_pokemon_data.json';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import completePokemonData from '../data/complete_pokemon_data.json';
+import moveClassification from '../data/clasificacion_movimientos_completa.json';
+import pokemonMovesData from '../data/pokemon_moves.json';
+import AddToAnalysisButton from '../components/AddToAnalysisButton';
+import { useTeam } from '../contexts/TeamContext';
 
 const TYPE_COLORS = {
   'normal': '#A8A878',
@@ -65,10 +70,24 @@ const MOVE_TYPE_EFFECTIVENESS = {
   fairy: { notVeryEffective: ['fire', 'poison', 'steel'], superEffective: ['fighting', 'dragon', 'dark'], noEffect: [] }
 };
 
-function TeamBuilder({ team, setTeam }) {
+function TeamBuilder({ setSavedPokemon }) {
+  const { team, updatePokemon, removePokemon, clearTeam, setCurrentPokemon } = useTeam();
+  
+  // Detect dark mode from App container
+  const [darkMode, setDarkMode] = useState(false);
+  useEffect(() => {
+    setDarkMode(document.querySelector('.App.dark-mode') !== null);
+    const observer = new MutationObserver(() => {
+      setDarkMode(document.querySelector('.App.dark-mode') !== null);
+    });
+    observer.observe(document.body, { attributes: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   const [suggestions, setSuggestions] = useState([]);
   const [searchTerms, setSearchTerms] = useState(Array(6).fill(''));
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const navigate = useNavigate();
   
   const allPokemon = completePokemonData.pokemon || [];
 
@@ -99,9 +118,26 @@ function TeamBuilder({ team, setTeam }) {
   };
 
   const handlePokemonSelect = (pokemon, slotIndex) => {
-    const newTeam = [...team];
-    newTeam[slotIndex] = pokemon;
-    setTeam(newTeam);
+    // Transform Pokemon data to team format
+    const teamPokemon = {
+      id: pokemon.id,
+      name: pokemon.name,
+      sprite: pokemon.sprite,
+      types: pokemon.types || [],
+      baseStats: pokemon.baseStats || {},
+      stats: pokemon.baseStats ? [
+        { stat: { name: 'hp' }, base_stat: pokemon.baseStats.hp || 0 },
+        { stat: { name: 'attack' }, base_stat: pokemon.baseStats.attack || 0 },
+        { stat: { name: 'defense' }, base_stat: pokemon.baseStats.defense || 0 },
+        { stat: { name: 'special-attack' }, base_stat: pokemon.baseStats.specialAttack || 0 },
+        { stat: { name: 'special-defense' }, base_stat: pokemon.baseStats.specialDefense || 0 },
+        { stat: { name: 'speed' }, base_stat: pokemon.baseStats.speed || 0 }
+      ] : [],
+      selectedMoves: [], // Initialize empty, will be populated in analysis
+      fromTeamBuilder: true
+    };
+    
+    updatePokemon(slotIndex, teamPokemon);
     
     const newSearchTerms = [...searchTerms];
     newSearchTerms[slotIndex] = pokemon.name;
@@ -111,22 +147,22 @@ function TeamBuilder({ team, setTeam }) {
     setSelectedSlot(null);
   };
 
-  const removePokemon = (slotIndex) => {
-    const newTeam = [...team];
-    newTeam[slotIndex] = null;
-    setTeam(newTeam);
+  const handleRemovePokemon = (slotIndex) => {
+    removePokemon(slotIndex);
     
     const newSearchTerms = [...searchTerms];
     newSearchTerms[slotIndex] = '';
     setSearchTerms(newSearchTerms);
   };
 
-  const clearTeam = () => {
+  const handleClearTeam = () => {
     if (window.confirm('Are you sure you want to clear all Pokémon from your team?')) {
-      setTeam(Array(6).fill(null));
+      clearTeam();
       setSearchTerms(Array(6).fill(''));
     }
   };
+
+
 
   // Calculate type effectiveness for the team
   const calculateTypeEffectiveness = () => {
@@ -164,10 +200,10 @@ function TeamBuilder({ team, setTeam }) {
       }
     });
 
-    // Calculate totals
+    // Calculate totals (count immunities as resistances)
     allTypes.forEach(attackingType => {
       const weakCount = typeChart[attackingType].slots.filter(eff => eff > 1).length;
-      const resistCount = typeChart[attackingType].slots.filter(eff => eff < 1 && eff > 0).length;
+      const resistCount = typeChart[attackingType].slots.filter(eff => eff < 1).length; // This includes both 0x and 0.5x
       typeChart[attackingType].totalWeak = weakCount;
       typeChart[attackingType].totalResist = resistCount;
     });
@@ -190,28 +226,36 @@ function TeamBuilder({ team, setTeam }) {
 
     team.forEach((pokemon, slotIndex) => {
       if (pokemon && pokemon.selectedMoves && pokemon.selectedMoves.length > 0) {
-        // Get unique move types from selected moves
+        // Get unique move types from selected moves, but only from offensive moves
         const moveTypes = new Set();
         
         pokemon.selectedMoves.forEach(move => {
-          // Extract move type - now should be included in the move object
-          let moveType = null;
+          // Check if move is in classification and is offensive
+          const moveKey = move.name?.toLowerCase().replace(/\s+/g, '-');
+          const moveClassInfo = moveClassification[moveKey];
           
-          if (move.type) {
-            moveType = move.type.toLowerCase();
-          }
+          // Only include moves that are offensive (not pure status moves)
+          const isOffensive = moveClassInfo && 
+            (moveClassInfo.tipo_movimiento === 'ofensivo_fisico' || 
+             moveClassInfo.tipo_movimiento === 'ofensivo_especial_efecto' ||
+             moveClassInfo.tipo_movimiento === 'ofensivo_especial_limitado' ||
+             moveClassInfo.tipo_movimiento === 'emergencia' ||
+             moveClassInfo.tipo_movimiento === 'soporte' && moveClassInfo.poder > 0);
           
-          if (moveType && Object.keys(MOVE_TYPE_EFFECTIVENESS).includes(moveType)) {
-            moveTypes.add(moveType);
+          if (isOffensive && move.type) {
+            const moveType = move.type.toLowerCase();
+            if (Object.keys(MOVE_TYPE_EFFECTIVENESS).includes(moveType)) {
+              moveTypes.add(moveType);
+            }
           }
         });
 
-        console.log('Pokemon:', pokemon.name, 'Move types found:', Array.from(moveTypes));
+        console.log('Pokemon:', pokemon.name, 'Offensive move types found:', Array.from(moveTypes));
 
         allTypes.forEach(defendingType => {
           let bestEffectiveness = 0;
           
-          // Check each move type this Pokemon has from selected moves
+          // Check each offensive move type this Pokemon has from selected moves
           moveTypes.forEach(moveType => {
             const moveTypeData = MOVE_TYPE_EFFECTIVENESS[moveType];
             if (moveTypeData) {
@@ -239,10 +283,10 @@ function TeamBuilder({ team, setTeam }) {
       }
     });
 
-    // Calculate totals
+    // Calculate totals (count no effect as not very effective)
     allTypes.forEach(defendingType => {
       const validSlots = coverageChart[defendingType].slots.filter(eff => eff !== null);
-      const notVeryEffectiveCount = validSlots.filter(eff => eff < 1 && eff > 0).length;
+      const notVeryEffectiveCount = validSlots.filter(eff => eff < 1).length; // This includes both 0x and 0.5x
       const superEffectiveCount = validSlots.filter(eff => eff > 1).length;
       coverageChart[defendingType].totalNotVeryEffective = notVeryEffectiveCount;
       coverageChart[defendingType].totalSuperEffective = superEffectiveCount;
@@ -288,27 +332,216 @@ function TeamBuilder({ team, setTeam }) {
   const typeChart = calculateTypeEffectiveness();
   const offensiveCoverage = calculateOffensiveCoverage();
 
+  // Helper for defensive conclusions
+
+  // Helper for offensive conclusions
+  const getOffensiveConclusions = () => {
+    const conclusions = [];
+    Object.keys(TYPE_EFFECTIVENESS).forEach(type => {
+      const slots = offensiveCoverage[type].slots;
+      const validSlots = slots.filter(eff => eff !== null);
+      
+      if (validSlots.length === 0) {
+        // No moves selected for any Pokemon
+        return;
+      }
+      
+      const hasSuperEffective = slots.some(eff => eff === 2);
+      const hasNormalEffective = slots.some(eff => eff === 1);
+      const hasNotVeryEffective = slots.filter(eff => eff === 0.5).length;
+      const hasNoEffect = slots.filter(eff => eff === 0).length;
+      const totalValidMoves = validSlots.length;
+      
+      // Check if type is very resilient (mostly resists or is immune to team's moves)
+      if ((hasNotVeryEffective + hasNoEffect) >= Math.ceil(totalValidMoves * 0.6)) {
+        conclusions.push(
+          `${type.toUpperCase()} types are very resilient to your team's moves (${hasNotVeryEffective} not very effective, ${hasNoEffect} no effect). Consider adding moves that are super effective against ${type}.`
+        );
+      }
+      // Check if team lacks any super effective coverage
+      else if (!hasSuperEffective && totalValidMoves > 0) {
+        conclusions.push(
+          `Your team lacks super effective coverage against ${type.toUpperCase()}. Consider adding a move or Pokémon to cover this type.`
+        );
+      }
+    });
+    
+    if (conclusions.length === 0) {
+      conclusions.push('Your team has good offensive coverage with no major weaknesses detected.');
+    }
+    return conclusions;
+  };
+
+  // Send Pokemon to analysis with team context
+  const sendToAnalysis = async (pokemon, slotIndex) => {
+    if (!setSavedPokemon) {
+      console.error('setSavedPokemon function not provided');
+      alert('Error: La función para guardar Pokemon no está disponible.');
+      return;
+    }
+
+    if (pokemon) {
+      const strategyUrl = `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemon.id}`;
+      try {
+        // Get moves from local JSON
+        const movesRaw = pokemonMovesData[pokemon.name?.toLowerCase()]?.moves || [];
+        const moves = movesRaw.map(move => {
+          let method = 'unknown';
+          if ('level' in move) method = 'level-up';
+          else if (move.type === 'egg_moves') method = 'egg';
+          else if (move.type === 'move_tutor') method = 'tutor';
+          else if (move.type === 'move_learner_tools' || move.type === 'special_moves') method = 'machine';
+
+          return {
+            name: move.name || '(desconocido)',
+            method,
+            level: move.level ?? 'N/A',
+            mtId: method === 'machine' ? move.id : null,
+            breedingPartner: method === 'egg' ? (move.breedingPartner || null) : null,
+            raw: move
+          };
+        });
+
+        // Transform for analysis page
+        const transformedPokemon = {
+          id: pokemon.id,
+          name: pokemon.name,
+          sprites: {
+            front_default: pokemon.sprite
+          },
+          stats: pokemon.stats || [],
+          types: pokemon.types ? pokemon.types.map(type => ({ type: { name: type } })) : [],
+          strategyUrl,
+          moves,
+          selectedMoves: pokemon.selectedMoves || [],
+          teamSlotIndex: slotIndex,
+          fromTeamBuilder: true,
+          // Include current team state
+          level: pokemon.level || 70,
+          nature: pokemon.nature || 'neutral',
+          item: pokemon.item || '',
+          evs: pokemon.evs || {
+            hp: 0, attack: 0, defense: 0,
+            spAttack: 0, spDefense: 0, speed: 0
+          },
+          ivs: pokemon.ivs || {
+            hp: 0, attack: 0, defense: 0,
+            spAttack: 0, spDefense: 0, speed: 0
+          }
+        };
+
+        console.log('Sending Pokemon to analysis:', transformedPokemon);
+        
+        // Set current Pokemon in team context
+        setCurrentPokemon(slotIndex);
+        
+        setSavedPokemon(transformedPokemon);
+        navigate('/ev-distribution');
+      } catch (error) {
+        console.error('Error al obtener los movimientos del Pokémon:', error);
+        alert('Error al obtener los movimientos del Pokémon.');
+      }
+    }
+  };
+
+  const getDefensiveConclusions = () => {
+    const conclusions = [];
+    let totalWeaknesses = 0;
+    let totalResistances = 0;
+    let criticalWeaknesses = [];
+    let strongResistances = [];
+
+    Object.keys(TYPE_EFFECTIVENESS).forEach(type => {
+      const weakCount = typeChart[type].totalWeak;
+      const resistCount = typeChart[type].totalResist;
+      
+      totalWeaknesses += weakCount;
+      totalResistances += resistCount;
+
+      // Find types with many weaknesses (3+ team members weak)
+      if (weakCount >= 3) {
+        criticalWeaknesses.push(`${type.toUpperCase()} (${weakCount} weak)`);
+      }
+
+      // Find types with many resistances (3+ team members resist)
+      if (resistCount >= 3) {
+        strongResistances.push(`${type.toUpperCase()} (${resistCount} resist)`);
+      }
+
+      // Check for 4x weaknesses
+      const slots = typeChart[type].slots;
+      const has4x = slots.some(eff => eff === 4);
+      if (has4x) {
+        conclusions.push(
+          `Your team has a 4× weakness to ${type.toUpperCase()}. Consider adding a Pokémon that resists or is immune to ${type}.`
+        );
+      }
+    });
+
+    // Overall defensive balance analysis
+    const defensiveScore = totalResistances - totalWeaknesses;
+    
+    if (defensiveScore > 10) {
+      conclusions.push(`Your team has excellent defensive coverage with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: +${defensiveScore}).`);
+    } else if (defensiveScore > 0) {
+      conclusions.push(`Your team has good defensive balance with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: +${defensiveScore}).`);
+    } else if (defensiveScore === 0) {
+      conclusions.push(`Your team has neutral defensive balance with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: ${defensiveScore}).`);
+    } else {
+      conclusions.push(`Your team has defensive weaknesses with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: ${defensiveScore}). Consider adding more defensive variety.`);
+    }
+
+    // Highlight critical weaknesses
+    if (criticalWeaknesses.length > 0) {
+      conclusions.push(`Critical weaknesses detected: ${criticalWeaknesses.join(', ')}. These types threaten multiple team members.`);
+    }
+
+    // Highlight strong resistances
+    if (strongResistances.length > 0) {
+      conclusions.push(`Strong resistances: ${strongResistances.join(', ')}. Your team handles these types well.`);
+    }
+
+    if (conclusions.length === 0) {
+      conclusions.push('Your team has balanced defensive coverage with no major issues detected.');
+    }
+    
+    return conclusions;
+  };
+
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      <h2 style={{ textAlign: 'center', color: '#2C3E50', marginBottom: '30px' }}>
+    <div
+      className={`team-builder${darkMode ? ' dark-mode' : ''}`}
+      style={{
+        padding: '16px',
+        minHeight: '100vh',
+        background: darkMode ? '#181a1b' : '#f7f7f7',
+        color: darkMode ? '#FFD600' : '#222',
+        boxSizing: 'border-box'
+      }}
+    >
+      <h2 style={{
+        textAlign: 'center',
+        color: darkMode ? '#FFD600' : '#222',
+        marginBottom: '20px'
+      }}>
         Pokémon Team Builder
       </h2>
 
       <div style={{ 
-        backgroundColor: '#F8F9FA', 
+        backgroundColor: darkMode ? '#23272b' : '#F8F9FA', 
         padding: '20px', 
         borderRadius: '10px', 
         marginBottom: '30px' 
       }}>
         <p style={{ 
           margin: '0 0 15px 0', 
-          color: '#555', 
+          color: darkMode ? '#ddd' : '#555', 
           fontSize: '16px',
           fontWeight: 'bold'
         }}>
           Build your perfect Pokémon team and analyze type coverage!
         </p>
-        <p style={{ margin: 0, color: '#777', fontSize: '14px' }}>
+        <p style={{ margin: 0, color: darkMode ? '#aaa' : '#777', fontSize: '14px' }}>
           Add up to 6 Pokémon to your team and see how well they cover each other's weaknesses. 
           The table below shows how each type of attack affects your team.
         </p>
@@ -316,7 +549,7 @@ function TeamBuilder({ team, setTeam }) {
 
       {/* Team Input Section */}
       <div style={{ marginBottom: '40px' }}>
-        <h3 style={{ color: '#34495E', marginBottom: '20px' }}>Team Input</h3>
+        <h3 style={{ color: darkMode ? '#FFD600' : '#34495E', marginBottom: '20px' }}>Team Input</h3>
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
@@ -324,16 +557,17 @@ function TeamBuilder({ team, setTeam }) {
         }}>
           {team.map((pokemon, index) => (
             <div key={index} style={{
-              border: '2px solid #E0E0E0',
+              border: `2px solid ${darkMode ? '#FFD600' : '#E0E0E0'}`,
               borderRadius: '10px',
               padding: '15px',
-              backgroundColor: pokemon ? '#F0F8FF' : '#FAFAFA',
-              position: 'relative'
+              backgroundColor: pokemon ? (darkMode ? '#2c2f33' : '#F0F8FF') : (darkMode ? '#23272b' : '#FAFAFA'),
+              position: 'relative',
+              color: darkMode ? '#FFD600' : '#222'
             }}>
               <div style={{ 
                 fontSize: '14px', 
                 fontWeight: 'bold', 
-                color: '#34495E', 
+                color: darkMode ? '#FFD600' : '#34495E', 
                 marginBottom: '10px' 
               }}>
                 Pokémon {index + 1}:
@@ -348,9 +582,11 @@ function TeamBuilder({ team, setTeam }) {
                   style={{
                     width: '100%',
                     padding: '10px',
-                    border: '2px solid #BDC3C7',
+                    border: `2px solid ${darkMode ? '#444' : '#BDC3C7'}`,
                     borderRadius: '5px',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    backgroundColor: darkMode ? '#2c2f33' : '#fff',
+                    color: darkMode ? '#ddd' : '#222'
                   }}
                 />
                 
@@ -360,8 +596,8 @@ function TeamBuilder({ team, setTeam }) {
                     top: '100%',
                     left: 0,
                     right: 0,
-                    backgroundColor: 'white',
-                    border: '1px solid #BDC3C7',
+                    backgroundColor: darkMode ? '#2c2f33' : 'white',
+                    border: `1px solid ${darkMode ? '#444' : '#BDC3C7'}`,
                     borderTop: 'none',
                     borderRadius: '0 0 5px 5px',
                     maxHeight: '150px',
@@ -378,11 +614,13 @@ function TeamBuilder({ team, setTeam }) {
                         style={{
                           padding: '8px 10px',
                           cursor: 'pointer',
-                          borderBottom: '1px solid #ECF0F1',
-                          fontSize: '14px'
+                          borderBottom: `1px solid ${darkMode ? '#444' : '#ECF0F1'}`,
+                          fontSize: '14px',
+                          backgroundColor: darkMode ? '#2c2f33' : 'white',
+                          color: darkMode ? '#ddd' : '#222'
                         }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#F8F9FA'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = darkMode ? '#3a3f47' : '#F8F9FA'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = darkMode ? '#2c2f33' : 'white'}
                       >
                         {suggestedPokemon.name} (#{suggestedPokemon.id})
                       </li>
@@ -398,13 +636,13 @@ function TeamBuilder({ team, setTeam }) {
                       <img 
                         src={pokemon.sprite} 
                         alt={pokemon.name}
-                        style={{ width: '60px', height: '60px', marginRight: '15px' }}
+                        style={{ width: '60px', height: '60px', marginRight: '15px', filter: darkMode ? 'brightness(0.85)' : 'none' }}
                       />
                     )}
                     <div style={{ flex: 1 }}>
                       <h4 style={{ 
                         margin: '0 0 5px 0', 
-                        color: '#2C3E50', 
+                        color: darkMode ? '#FFD600' : '#2C3E50', 
                         textTransform: 'capitalize' 
                       }}>
                         {pokemon.name}
@@ -475,20 +713,52 @@ function TeamBuilder({ team, setTeam }) {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => removePokemon(index)}
-                    style={{
-                      backgroundColor: '#E74C3C',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      padding: '5px 10px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove
-                  </button>
+                  {/* Display analysis state */}
+                  {(pokemon.evs || pokemon.ivs || pokemon.level !== 70 || pokemon.nature !== 'neutral') && (
+                    <div style={{ marginTop: '8px', padding: '6px', backgroundColor: darkMode ? '#1a1a1a' : '#F0F8FF', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: darkMode ? '#FFD600' : '#666', marginBottom: '3px' }}>
+                        Analysis Data:
+                      </div>
+                      <div style={{ fontSize: '10px', color: darkMode ? '#ccc' : '#555' }}>
+                        Level: {pokemon.level || 70} | Nature: {pokemon.nature || 'neutral'}
+                        {pokemon.item && ` | Item: ${pokemon.item}`}
+                      </div>
+                      {/* Show EV investment summary */}
+                      {pokemon.evs && Object.values(pokemon.evs).some(ev => ev > 0) && (
+                        <div style={{ fontSize: '10px', color: darkMode ? '#ccc' : '#555' }}>
+                          EVs: {Object.entries(pokemon.evs)
+                            .filter(([_, value]) => value > 0)
+                            .map(([stat, value]) => `${stat}: ${value}`)
+                            .join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <button
+                      onClick={() => handleRemovePokemon(index)}
+                      style={{
+                        backgroundColor: darkMode ? '#FFD600' : '#E74C3C',
+                        color: darkMode ? '#23272b' : 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        padding: '5px 10px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        flex: 1
+                      }}
+                    >
+                      Remove
+                    </button>
+                    
+                    <AddToAnalysisButton
+                      pokemon={pokemon}
+                      onClick={sendToAnalysis}
+                      slotIndex={index}
+                      darkMode={darkMode}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -497,7 +767,7 @@ function TeamBuilder({ team, setTeam }) {
         
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <button
-            onClick={clearTeam}
+            onClick={handleClearTeam}
             style={{
               backgroundColor: '#95A5A6',
               color: 'white',
@@ -516,15 +786,15 @@ function TeamBuilder({ team, setTeam }) {
 
       {/* Offensive Coverage Table */}
       <div style={{
-        backgroundColor: 'white',
-        border: '2px solid #E0E0E0',
+        backgroundColor: darkMode ? '#23272b' : 'white',
+        border: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
         borderRadius: '10px',
         overflow: 'hidden',
         marginBottom: '30px'
       }}>
         <div style={{
-          backgroundColor: '#2980B9',
-          color: 'white',
+          backgroundColor: darkMode ? '#1a237e' : '#2980B9',
+          color: darkMode ? '#FFD600' : 'white',
           padding: '15px',
           fontSize: '18px',
           fontWeight: 'bold'
@@ -533,13 +803,13 @@ function TeamBuilder({ team, setTeam }) {
         </div>
         
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: darkMode ? '#181a1b' : 'white', color: darkMode ? '#FFD600' : '#222' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8F9FA' }}>
+              <tr style={{ backgroundColor: darkMode ? '#23272b' : '#F8F9FA' }}>
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'left', 
-                  borderBottom: '2px solid #E0E0E0',
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                   minWidth: '80px'
                 }}>
                   Enemy ↓
@@ -548,18 +818,18 @@ function TeamBuilder({ team, setTeam }) {
                   <th key={index} style={{ 
                     padding: '10px', 
                     textAlign: 'center', 
-                    borderBottom: '2px solid #E0E0E0',
+                    borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                     minWidth: '80px'
                   }}>
                     {pokemon ? (
                       <div>
                         <div>{pokemon.name}</div>
                         {pokemon.selectedMoves && pokemon.selectedMoves.length > 0 ? (
-                          <div style={{ fontSize: '10px', color: '#666' }}>
+                          <div style={{ fontSize: '10px', color: darkMode ? '#FFD600' : '#666' }}>
                             ({pokemon.selectedMoves.length} selected moves)
                           </div>
                         ) : (
-                          <div style={{ fontSize: '10px', color: '#999' }}>
+                          <div style={{ fontSize: '10px', color: darkMode ? '#888' : '#999' }}>
                             (no selected moves)
                           </div>
                         )}
@@ -570,16 +840,16 @@ function TeamBuilder({ team, setTeam }) {
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'center', 
-                  borderBottom: '2px solid #E0E0E0',
-                  backgroundColor: '#FFEBEE'
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#3b2323' : '#FFEBEE'
                 }}>
                   Not Very Effective
                 </th>
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'center', 
-                  borderBottom: '2px solid #E0E0E0',
-                  backgroundColor: '#E8F5E8'
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#233b23' : '#E8F5E8'
                 }}>
                   Super Effective
                 </th>
@@ -590,7 +860,7 @@ function TeamBuilder({ team, setTeam }) {
                 <tr key={type}>
                   <td style={{ 
                     padding: '8px 10px', 
-                    borderBottom: '1px solid #E0E0E0',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                     backgroundColor: TYPE_COLORS[type],
                     color: 'white',
                     fontWeight: 'bold',
@@ -602,8 +872,8 @@ function TeamBuilder({ team, setTeam }) {
                     <td key={slotIndex} style={{ 
                       padding: '8px', 
                       textAlign: 'center', 
-                      borderBottom: '1px solid #E0E0E0',
-                      backgroundColor: team[slotIndex] ? 'white' : '#F8F9FA',
+                      borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                      backgroundColor: team[slotIndex] ? (darkMode ? '#23272b' : 'white') : (darkMode ? '#181a1b' : '#F8F9FA'),
                       color: getOffensiveEffectivenessColor(effectiveness),
                       fontWeight: 'bold'
                     }}>
@@ -613,20 +883,20 @@ function TeamBuilder({ team, setTeam }) {
                   <td style={{ 
                     padding: '8px', 
                     textAlign: 'center', 
-                    borderBottom: '1px solid #E0E0E0',
-                    backgroundColor: '#FFEBEE',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#3b2323' : '#FFEBEE',
                     fontWeight: 'bold',
-                    color: offensiveCoverage[type].totalNotVeryEffective > 0 ? '#E74C3C' : '#666'
+                    color: offensiveCoverage[type].totalNotVeryEffective > 0 ? '#E74C3C' : (darkMode ? '#FFD600' : '#666')
                   }}>
                     {offensiveCoverage[type].totalNotVeryEffective}
                   </td>
                   <td style={{ 
                     padding: '8px', 
                     textAlign: 'center', 
-                    borderBottom: '1px solid #E0E0E0',
-                    backgroundColor: '#E8F5E8',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#233b23' : '#E8F5E8',
                     fontWeight: 'bold',
-                    color: offensiveCoverage[type].totalSuperEffective > 0 ? '#27AE60' : '#666'
+                    color: offensiveCoverage[type].totalSuperEffective > 0 ? '#27AE60' : (darkMode ? '#FFD600' : '#666')
                   }}>
                     {offensiveCoverage[type].totalSuperEffective}
                   </td>
@@ -637,27 +907,41 @@ function TeamBuilder({ team, setTeam }) {
         </div>
         
         <div style={{
-          backgroundColor: '#F8F9FA',
+          backgroundColor: darkMode ? '#23272b' : '#F8F9FA',
           padding: '15px',
           fontSize: '14px',
-          color: '#555'
+          color: darkMode ? '#FFD600' : '#555'
         }}>
           <strong>Note:</strong> Offensive coverage is calculated based on move types from Pokemon's selected moves in EVDistribution analysis. 
           Pokemon without selected move data will show "-" for all matchups.
+        </div>
+        {/* Offensive Coverage Conclusions */}
+        <div style={{
+          backgroundColor: darkMode ? '#181a1b' : '#f7f7f7',
+          color: darkMode ? '#FFD600' : '#222',
+          padding: '12px 18px',
+          borderTop: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`
+        }}>
+          <strong>Conclusions:</strong>
+          <ul style={{ margin: '8px 0 0 18px', padding: 0 }}>
+            {getOffensiveConclusions().map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
         </div>
       </div>
 
       {/* Defensive Coverage Table */}
       <div style={{
-        backgroundColor: 'white',
-        border: '2px solid #E0E0E0',
+        backgroundColor: darkMode ? '#23272b' : 'white',
+        border: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
         borderRadius: '10px',
         overflow: 'hidden',
         marginBottom: '30px'
       }}>
         <div style={{
-          backgroundColor: '#34495E',
-          color: 'white',
+          backgroundColor: darkMode ? '#263238' : '#34495E',
+          color: darkMode ? '#FFD600' : 'white',
           padding: '15px',
           fontSize: '18px',
           fontWeight: 'bold'
@@ -666,13 +950,13 @@ function TeamBuilder({ team, setTeam }) {
         </div>
         
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: darkMode ? '#181a1b' : 'white', color: darkMode ? '#FFD600' : '#222' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8F9FA' }}>
+              <tr style={{ backgroundColor: darkMode ? '#23272b' : '#F8F9FA' }}>
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'left', 
-                  borderBottom: '2px solid #E0E0E0',
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                   minWidth: '80px'
                 }}>
                   Attack Type
@@ -681,7 +965,7 @@ function TeamBuilder({ team, setTeam }) {
                   <th key={index} style={{ 
                     padding: '10px', 
                     textAlign: 'center', 
-                    borderBottom: '2px solid #E0E0E0',
+                    borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                     minWidth: '80px'
                   }}>
                     {pokemon ? pokemon.name : `Slot ${index + 1}`}
@@ -690,16 +974,16 @@ function TeamBuilder({ team, setTeam }) {
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'center', 
-                  borderBottom: '2px solid #E0E0E0',
-                  backgroundColor: '#FFEBEE'
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#3b2323' : '#FFEBEE'
                 }}>
                   Weak
                 </th>
                 <th style={{ 
                   padding: '10px', 
                   textAlign: 'center', 
-                  borderBottom: '2px solid #E0E0E0',
-                  backgroundColor: '#E8F5E8'
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#233b23' : '#E8F5E8'
                 }}>
                   Resist
                 </th>
@@ -710,7 +994,7 @@ function TeamBuilder({ team, setTeam }) {
                 <tr key={type}>
                   <td style={{ 
                     padding: '8px 10px', 
-                    borderBottom: '1px solid #E0E0E0',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
                     backgroundColor: TYPE_COLORS[type],
                     color: 'white',
                     fontWeight: 'bold',
@@ -722,8 +1006,8 @@ function TeamBuilder({ team, setTeam }) {
                     <td key={slotIndex} style={{ 
                       padding: '8px', 
                       textAlign: 'center', 
-                      borderBottom: '1px solid #E0E0E0',
-                      backgroundColor: team[slotIndex] ? 'white' : '#F8F9FA',
+                      borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                      backgroundColor: team[slotIndex] ? (darkMode ? '#23272b' : 'white') : (darkMode ? '#181a1b' : '#F8F9FA'),
                       color: getEffectivenessColor(effectiveness),
                       fontWeight: 'bold'
                     }}>
@@ -733,20 +1017,20 @@ function TeamBuilder({ team, setTeam }) {
                   <td style={{ 
                     padding: '8px', 
                     textAlign: 'center', 
-                    borderBottom: '1px solid #E0E0E0',
-                    backgroundColor: '#FFEBEE',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#3b2323' : '#FFEBEE',
                     fontWeight: 'bold',
-                    color: typeChart[type].totalWeak > 0 ? '#E74C3C' : '#666'
+                    color: typeChart[type].totalWeak > 0 ? '#E74C3C' : (darkMode ? '#FFD600' : '#666')
                   }}>
                     {typeChart[type].totalWeak}
                   </td>
                   <td style={{ 
                     padding: '8px', 
                     textAlign: 'center', 
-                    borderBottom: '1px solid #E0E0E0',
-                    backgroundColor: '#E8F5E8',
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#233b23' : '#E8F5E8',
                     fontWeight: 'bold',
-                    color: typeChart[type].totalResist > 0 ? '#27AE60' : '#666'
+                    color: typeChart[type].totalResist > 0 ? '#27AE60' : (darkMode ? '#FFD600' : '#666')
                   }}>
                     {typeChart[type].totalResist}
                   </td>
@@ -754,6 +1038,20 @@ function TeamBuilder({ team, setTeam }) {
               ))}
             </tbody>
           </table>
+        </div>
+        {/* Defensive Coverage Conclusions */}
+        <div style={{
+          backgroundColor: darkMode ? '#181a1b' : '#f7f7f7',
+          color: darkMode ? '#FFD600' : '#222',
+          padding: '12px 18px',
+          borderTop: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`
+        }}>
+          <strong>Conclusions:</strong>
+          <ul style={{ margin: '8px 0 0 18px', padding: 0 }}>
+            {getDefensiveConclusions().map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
         </div>
       </div>
 
@@ -784,6 +1082,21 @@ function TeamBuilder({ team, setTeam }) {
           </div>
         </div>
       </div>
+
+      {/* Responsive styles */}
+      <style>
+        {`
+        @media (max-width: 700px) {
+          .team-builder {
+            padding: 8px !important;
+          }
+          .team-builder > div {
+            flex-direction: column !important;
+            gap: 10px !important;
+          }
+        }
+        `}
+      </style>
     </div>
   );
 }

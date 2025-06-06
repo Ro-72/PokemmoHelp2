@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import pokemonMovesData from '../pokemon_moves.json'; // Adjust path as needed
+import pokemonMovesData from '../data/pokemon_moves.json'; // Adjust path as needed
 
 function PokemonSearch({ setSavedPokemon, disableAutocomplete = false, onClose }) {
   const [searchTerm, setSearchTerm] = useState('');
