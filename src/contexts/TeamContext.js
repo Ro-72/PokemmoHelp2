@@ -133,6 +133,11 @@ export function TeamProvider({ children }) {
     }
   };
 
+  // Clear current Pokemon selection
+  const clearCurrentPokemon = () => {
+    setCurrentPokemonId(null);
+  };
+
   return (
     <TeamContext.Provider value={{
       team,
@@ -143,7 +148,8 @@ export function TeamProvider({ children }) {
       currentPokemonId,
       setCurrentPokemon,
       getCurrentPokemon,
-      updateCurrentPokemonAnalysis
+      updateCurrentPokemonAnalysis,
+      clearCurrentPokemon
     }}>
       {children}
     </TeamContext.Provider>

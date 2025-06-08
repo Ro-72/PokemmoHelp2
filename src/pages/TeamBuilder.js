@@ -295,10 +295,10 @@ function TeamBuilder({ setSavedPokemon }) {
     return coverageChart;
   };
 
-  const getEffectivenessText = (effectiveness) => {
-    if (effectiveness === 0) return '0×';
-    if (effectiveness === 0.25) return '¼×';
-    if (effectiveness === 0.5) return '½×';
+  const getEffectivenessDisplay = (effectiveness) => {
+    if (effectiveness === 0) return 'Immune';
+    if (effectiveness === 0.25) return '0.25×';
+    if (effectiveness === 0.5) return '0.5×';
     if (effectiveness === 1) return '1×';
     if (effectiveness === 2) return '2×';
     if (effectiveness === 4) return '4×';
@@ -306,10 +306,10 @@ function TeamBuilder({ setSavedPokemon }) {
   };
 
   const getEffectivenessColor = (effectiveness) => {
-    if (effectiveness === 0) return '#666';
-    if (effectiveness < 1) return '#4CAF50';
-    if (effectiveness === 1) return '#999';
-    return '#F44336';
+    if (effectiveness === 0) return '#9B59B6'; // Purple for immune
+    if (effectiveness < 1) return '#27AE60'; // Green for resistant
+    if (effectiveness === 1) return '#95A5A6'; // Gray for neutral
+    return '#E74C3C'; // Red for weak
   };
 
   const getOffensiveEffectivenessText = (effectiveness) => {
@@ -445,11 +445,8 @@ function TeamBuilder({ setSavedPokemon }) {
   };
 
   const getDefensiveConclusions = () => {
-    const conclusions = [];
     let totalWeaknesses = 0;
     let totalResistances = 0;
-    let criticalWeaknesses = [];
-    let strongResistances = [];
 
     Object.keys(TYPE_EFFECTIVENESS).forEach(type => {
       const weakCount = typeChart[type].totalWeak;
@@ -457,55 +454,12 @@ function TeamBuilder({ setSavedPokemon }) {
       
       totalWeaknesses += weakCount;
       totalResistances += resistCount;
-
-      // Find types with many weaknesses (3+ team members weak)
-      if (weakCount >= 3) {
-        criticalWeaknesses.push(`${type.toUpperCase()} (${weakCount} weak)`);
-      }
-
-      // Find types with many resistances (3+ team members resist)
-      if (resistCount >= 3) {
-        strongResistances.push(`${type.toUpperCase()} (${resistCount} resist)`);
-      }
-
-      // Check for 4x weaknesses
-      const slots = typeChart[type].slots;
-      const has4x = slots.some(eff => eff === 4);
-      if (has4x) {
-        conclusions.push(
-          `Your team has a 4× weakness to ${type.toUpperCase()}. Consider adding a Pokémon that resists or is immune to ${type}.`
-        );
-      }
     });
 
-    // Overall defensive balance analysis
+    // Calculate defensive score (resistances are positive, weaknesses are negative)
     const defensiveScore = totalResistances - totalWeaknesses;
     
-    if (defensiveScore > 10) {
-      conclusions.push(`Your team has excellent defensive coverage with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: +${defensiveScore}).`);
-    } else if (defensiveScore > 0) {
-      conclusions.push(`Your team has good defensive balance with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: +${defensiveScore}).`);
-    } else if (defensiveScore === 0) {
-      conclusions.push(`Your team has neutral defensive balance with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: ${defensiveScore}).`);
-    } else {
-      conclusions.push(`Your team has defensive weaknesses with ${totalResistances} resistances vs ${totalWeaknesses} weaknesses (Score: ${defensiveScore}). Consider adding more defensive variety.`);
-    }
-
-    // Highlight critical weaknesses
-    if (criticalWeaknesses.length > 0) {
-      conclusions.push(`Critical weaknesses detected: ${criticalWeaknesses.join(', ')}. These types threaten multiple team members.`);
-    }
-
-    // Highlight strong resistances
-    if (strongResistances.length > 0) {
-      conclusions.push(`Strong resistances: ${strongResistances.join(', ')}. Your team handles these types well.`);
-    }
-
-    if (conclusions.length === 0) {
-      conclusions.push('Your team has balanced defensive coverage with no major issues detected.');
-    }
-    
-    return conclusions;
+    return [`Defensive Summary: ${totalResistances} resistances, ${totalWeaknesses} weaknesses (Net Score: ${defensiveScore > 0 ? '+' : ''}${defensiveScore})`];
   };
 
   return (
@@ -784,6 +738,132 @@ function TeamBuilder({ setSavedPokemon }) {
         </div>
       </div>
 
+
+
+      {/* Defensive Coverage Table */}
+      <div style={{
+        backgroundColor: darkMode ? '#23272b' : 'white',
+        border: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+        borderRadius: '10px',
+        overflow: 'hidden',
+        marginBottom: '30px'
+      }}>
+        <div style={{
+          backgroundColor: darkMode ? '#263238' : '#34495E',
+          color: darkMode ? '#FFD600' : 'white',
+          padding: '15px',
+          fontSize: '18px',
+          fontWeight: 'bold'
+        }}>
+          Defensive Coverage
+        </div>
+        
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: darkMode ? '#181a1b' : 'white', color: darkMode ? '#FFD600' : '#222' }}>
+            <thead>
+              <tr style={{ backgroundColor: darkMode ? '#23272b' : '#F8F9FA' }}>
+                <th style={{ 
+                  padding: '10px', 
+                  textAlign: 'left', 
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  minWidth: '80px'
+                }}>
+                  Attack Type
+                </th>
+                {team.map((pokemon, index) => (
+                  <th key={index} style={{ 
+                    padding: '10px', 
+                    textAlign: 'center', 
+                    borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    minWidth: '80px'
+                  }}>
+                    {pokemon ? pokemon.name : `Slot ${index + 1}`}
+                  </th>
+                ))}
+                <th style={{ 
+                  padding: '10px', 
+                  textAlign: 'center', 
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#3b2323' : '#FFEBEE'
+                }}>
+                  Weak
+                </th>
+                <th style={{ 
+                  padding: '10px', 
+                  textAlign: 'center', 
+                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                  backgroundColor: darkMode ? '#233b23' : '#E8F5E8'
+                }}>
+                  Resist
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(TYPE_EFFECTIVENESS).map(type => (
+                <tr key={type}>
+                  <td style={{ 
+                    padding: '8px 10px', 
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: TYPE_COLORS[type],
+                    color: 'white',
+                    fontWeight: 'bold',
+                    textTransform: 'capitalize'
+                  }}>
+                    {type}
+                  </td>
+                  {typeChart[type].slots.map((effectiveness, slotIndex) => (
+                    <td key={slotIndex} style={{ 
+                      padding: '8px', 
+                      textAlign: 'center', 
+                      borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                      backgroundColor: team[slotIndex] ? (darkMode ? '#23272b' : 'white') : (darkMode ? '#181a1b' : '#F8F9FA'),
+                      color: getEffectivenessColor(effectiveness),
+                      fontWeight: 'bold'
+                    }}>
+                      {team[slotIndex] ? getEffectivenessDisplay(effectiveness) : '-'}
+                    </td>
+                  ))}
+                  <td style={{ 
+                    padding: '8px', 
+                    textAlign: 'center', 
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#3b2323' : '#FFEBEE',
+                    fontWeight: 'bold',
+                    color: typeChart[type].totalWeak > 0 ? '#E74C3C' : (darkMode ? '#FFD600' : '#666')
+                  }}>
+                    {typeChart[type].totalWeak}
+                  </td>
+                  <td style={{ 
+                    padding: '8px', 
+                    textAlign: 'center', 
+                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
+                    backgroundColor: darkMode ? '#233b23' : '#E8F5E8',
+                    fontWeight: 'bold',
+                    color: typeChart[type].totalResist > 0 ? '#27AE60' : (darkMode ? '#FFD600' : '#666')
+                  }}>
+                    {typeChart[type].totalResist}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Defensive Coverage Conclusions */}
+        <div style={{
+          backgroundColor: darkMode ? '#181a1b' : '#f7f7f7',
+          color: darkMode ? '#FFD600' : '#222',
+          padding: '12px 18px',
+          borderTop: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`
+        }}>
+           <strong>Conclusions:</strong>
+          <ul style={{ margin: '8px 0 0 18px', padding: 0 }}>
+            {getDefensiveConclusions().map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul> 
+        </div>
+      </div>
+
       {/* Offensive Coverage Table */}
       <div style={{
         backgroundColor: darkMode ? '#23272b' : 'white',
@@ -931,129 +1011,7 @@ function TeamBuilder({ setSavedPokemon }) {
         </div>
       </div>
 
-      {/* Defensive Coverage Table */}
-      <div style={{
-        backgroundColor: darkMode ? '#23272b' : 'white',
-        border: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-        borderRadius: '10px',
-        overflow: 'hidden',
-        marginBottom: '30px'
-      }}>
-        <div style={{
-          backgroundColor: darkMode ? '#263238' : '#34495E',
-          color: darkMode ? '#FFD600' : 'white',
-          padding: '15px',
-          fontSize: '18px',
-          fontWeight: 'bold'
-        }}>
-          Defensive Coverage
-        </div>
-        
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: darkMode ? '#181a1b' : 'white', color: darkMode ? '#FFD600' : '#222' }}>
-            <thead>
-              <tr style={{ backgroundColor: darkMode ? '#23272b' : '#F8F9FA' }}>
-                <th style={{ 
-                  padding: '10px', 
-                  textAlign: 'left', 
-                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                  minWidth: '80px'
-                }}>
-                  Attack Type
-                </th>
-                {team.map((pokemon, index) => (
-                  <th key={index} style={{ 
-                    padding: '10px', 
-                    textAlign: 'center', 
-                    borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                    minWidth: '80px'
-                  }}>
-                    {pokemon ? pokemon.name : `Slot ${index + 1}`}
-                  </th>
-                ))}
-                <th style={{ 
-                  padding: '10px', 
-                  textAlign: 'center', 
-                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                  backgroundColor: darkMode ? '#3b2323' : '#FFEBEE'
-                }}>
-                  Weak
-                </th>
-                <th style={{ 
-                  padding: '10px', 
-                  textAlign: 'center', 
-                  borderBottom: `2px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                  backgroundColor: darkMode ? '#233b23' : '#E8F5E8'
-                }}>
-                  Resist
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(TYPE_EFFECTIVENESS).map(type => (
-                <tr key={type}>
-                  <td style={{ 
-                    padding: '8px 10px', 
-                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                    backgroundColor: TYPE_COLORS[type],
-                    color: 'white',
-                    fontWeight: 'bold',
-                    textTransform: 'capitalize'
-                  }}>
-                    {type}
-                  </td>
-                  {typeChart[type].slots.map((effectiveness, slotIndex) => (
-                    <td key={slotIndex} style={{ 
-                      padding: '8px', 
-                      textAlign: 'center', 
-                      borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                      backgroundColor: team[slotIndex] ? (darkMode ? '#23272b' : 'white') : (darkMode ? '#181a1b' : '#F8F9FA'),
-                      color: getEffectivenessColor(effectiveness),
-                      fontWeight: 'bold'
-                    }}>
-                      {team[slotIndex] ? getEffectivenessText(effectiveness) : '-'}
-                    </td>
-                  ))}
-                  <td style={{ 
-                    padding: '8px', 
-                    textAlign: 'center', 
-                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                    backgroundColor: darkMode ? '#3b2323' : '#FFEBEE',
-                    fontWeight: 'bold',
-                    color: typeChart[type].totalWeak > 0 ? '#E74C3C' : (darkMode ? '#FFD600' : '#666')
-                  }}>
-                    {typeChart[type].totalWeak}
-                  </td>
-                  <td style={{ 
-                    padding: '8px', 
-                    textAlign: 'center', 
-                    borderBottom: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`,
-                    backgroundColor: darkMode ? '#233b23' : '#E8F5E8',
-                    fontWeight: 'bold',
-                    color: typeChart[type].totalResist > 0 ? '#27AE60' : (darkMode ? '#FFD600' : '#666')
-                  }}>
-                    {typeChart[type].totalResist}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {/* Defensive Coverage Conclusions */}
-        <div style={{
-          backgroundColor: darkMode ? '#181a1b' : '#f7f7f7',
-          color: darkMode ? '#FFD600' : '#222',
-          padding: '12px 18px',
-          borderTop: `1px solid ${darkMode ? '#444' : '#E0E0E0'}`
-        }}>
-          <strong>Conclusions:</strong>
-          <ul style={{ margin: '8px 0 0 18px', padding: 0 }}>
-            {getDefensiveConclusions().map((c, i) => (
-              <li key={i}>{c}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+
 
       {/* Legend */}
       <div style={{

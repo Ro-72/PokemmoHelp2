@@ -36,7 +36,7 @@ function AppWrapper() {
       // Switch to team builder environment
       setWorkEnv('teambuilder');
       navigate('/team-builder');
-    } else {
+    } else { 
       alert('Team is full! Remove a Pokemon first.');
     }
   };

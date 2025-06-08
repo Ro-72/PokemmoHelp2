@@ -228,7 +228,7 @@ function EVDistribution({ savedPokemon, addToTeam }) {
         />
       </div>
 
-      {activePokemon && (
+      {activePokemon ? (
         /* 
           * Saved Pokémon Information
           ? Replaced with <PokemonInfo /> component
@@ -253,6 +253,25 @@ function EVDistribution({ savedPokemon, addToTeam }) {
           onSaveMoves={handleSaveMoves}
           initialSelectedMoves={selectedMoves}
         />
+      ) : (
+        <div style={{ 
+          flex: 1, 
+          border: '1px solid #ccc', 
+          padding: '20px', 
+          textAlign: 'center',
+          backgroundColor: '#f9f9f9',
+          borderRadius: '8px'
+        }}>
+          <h3 style={{ color: '#666', marginBottom: '15px' }}>No Pokemon Selected</h3>
+          <p style={{ color: '#888', marginBottom: '20px' }}>
+            Search for a Pokemon or select one from your team to begin analysis.
+          </p>
+          <div style={{ fontSize: '14px', color: '#999' }}>
+            <p>• Use Pokemon Search to find and analyze any Pokemon</p>
+            <p>• Use Team Builder to select a Pokemon from your team</p>
+            <p>• Use Pokemon Roles to find Pokemon by competitive role</p>
+          </div>
+        </div>
       )}
 
       {/* 

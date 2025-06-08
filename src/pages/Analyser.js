@@ -1,7 +1,7 @@
 /* 
   ! Imports and Constants 
 */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import recomendations from '../data/recomend.json';
 import natureMultipliers from '../data/natureMultipliers.json';
 import '../App.css';
@@ -9,6 +9,7 @@ import RecommendationPopup from '../components/RecommendationPopup';
 import EVForm from '../components/EVForm';
 import IVForm from '../components/IVForm';
 import PokemonInfo from '../components/PokemonInfo';
+import movesMetadata from '../data/metadata_pokemon_moves.json';
 
 /* 
   ! Main Component: EVDistribution 
@@ -42,10 +43,10 @@ function EVDistribution({ savedPokemon, addToTeam }) {
   const [activeTab, setActiveTab] = useState('level-up'); // Track the active tab
   /* 
     * Popup: Recommendations
-    ? Moved to <RecommendationPopup /> component
   */
   const [showPopup, setShowPopup] = useState(false);
   const [selectedMoves, setSelectedMoves] = useState([]);
+  const [moveSearchTerm, setMoveSearchTerm] = useState('');
 
   const statMapping = {
     'hp': 'hp',
@@ -59,7 +60,6 @@ function EVDistribution({ savedPokemon, addToTeam }) {
   // * Utility Functions grouped in one object
   const utils = {
     togglePopup: () => setShowPopup((prev) => !prev),
-
 
     handleChange: (stat, value, type) => {
       value = parseInt(value, 10);
@@ -127,6 +127,30 @@ function EVDistribution({ savedPokemon, addToTeam }) {
     }
   };
 
+  // Sort moves by type, then by name
+  const sortMovesByType = (moves) => {
+    return moves.sort((a, b) => {
+      // First sort by type alphabetically
+      const typeComparison = a.type.localeCompare(b.type);
+      if (typeComparison !== 0) {
+        return typeComparison;
+      }
+      // If types are the same, sort by move name alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  // Filter and sort moves
+  const filteredMoves = useMemo(() => {
+    if (!moveSearchTerm) return [];
+    
+    const filtered = movesMetadata.filter(move =>
+      move.name.toLowerCase().includes(moveSearchTerm.toLowerCase())
+    );
+    
+    return sortMovesByType(filtered);
+  }, [moveSearchTerm]);
+
   // Handler to receive selected moves from PokemonInfo
   const handleSaveMoves = (moves) => {
     setSelectedMoves(moves);
@@ -144,16 +168,17 @@ function EVDistribution({ savedPokemon, addToTeam }) {
     }
   };
 
+  const totalEVs = Object.values(evs).reduce((sum, ev) => sum + ev, 0);
+  const remainingEVs = maxEV - totalEVs;
+  const totalIVs = Object.values(ivs).reduce((sum, iv) => sum + iv, 0);
+  const remainingIVs = maxIV - totalIVs;
+
   return (
-    <div
-      className="ev-container"
-    >
-      <div
-        className="ev-iv-column"
-      >
+    <div className="ev-container">
+      <div className="ev-iv-column">
         {/* 
           * EV Distribution Form
-          ? Replaced with <EVForm /> component
+          ? Using <EVForm /> component
         */}
         <EVForm
           evs={evs}
@@ -170,7 +195,7 @@ function EVDistribution({ savedPokemon, addToTeam }) {
 
         {/* 
           * IV Distribution Form
-          ? Replaced with <IVForm /> component
+          ? Using <IVForm /> component
         */}
         <IVForm
           ivs={ivs}
@@ -183,7 +208,7 @@ function EVDistribution({ savedPokemon, addToTeam }) {
       {savedPokemon && (
         /* 
           * Saved Pokémon Information
-          ? Replaced with <PokemonInfo /> component
+          ? Using <PokemonInfo /> component
         */
         <PokemonInfo
           savedPokemon={savedPokemon}
@@ -208,7 +233,7 @@ function EVDistribution({ savedPokemon, addToTeam }) {
 
       {/* 
         * Recommendation Popup
-        ? Rendered as <RecommendationPopup /> component
+        ? Using <RecommendationPopup /> component
       */}
       {showPopup && (
         <RecommendationPopup
