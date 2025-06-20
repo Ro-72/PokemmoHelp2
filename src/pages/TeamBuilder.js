@@ -133,14 +133,53 @@ function TeamBuilder() {
     
     setSuggestions([]);
     setSelectedSlot(null);
-  };
-
-  // Function to handle editing a Pokemon
+  };  // Function to handle editing a Pokemon
   const handleEditPokemon = (pokemon, slotIndex) => {
-    // Navigate to EVDistribution with pokemon data and slotIndex
+    // Get the complete Pokemon data from the team context
+    const completeData = team[slotIndex];
+    
+    if (!completeData) {
+      console.error('No complete data found for the Pokemon at slot', slotIndex);
+      return;
+    }
+    
+    // Make sure we have the required fields before navigating
+    const enrichedData = {
+      ...completeData,
+      // Ensure we have default values for these important fields
+      evs: completeData.evs || {
+        hp: 0,
+        attack: 0,
+        defense: 0,
+        spAttack: 0,
+        spDefense: 0,
+        speed: 0
+      },
+      ivs: completeData.ivs || {
+        hp: 0,
+        attack: 0,
+        defense: 0,
+        spAttack: 0,
+        spDefense: 0,
+        speed: 0
+      },
+      level: completeData.level || 50,
+      nature: completeData.nature || 'neutral',
+      selectedMoves: completeData.selectedMoves || []
+    };
+    
+    // Log the data being sent to EVDistribution
+    console.log('Sending to EVDistribution:', {
+      pokemon: enrichedData,
+      slotIndex,
+      isEditing: true,
+      stats: enrichedData.stats
+    });
+    
+    // Navigate to EVDistribution with the complete pokemon data and slotIndex
     navigate('/ev-distribution', { 
       state: { 
-        pokemon, 
+        pokemon: enrichedData,
         slotIndex,
         isEditing: true
       } 

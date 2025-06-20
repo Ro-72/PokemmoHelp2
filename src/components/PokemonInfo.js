@@ -31,14 +31,46 @@ function PokemonInfo({
   const navigate = useNavigate();
   
   // Use Pokemon context
-  const { addToTeam } = usePokemonContext();
-
-  // Initialize selectedMoves from props
+  const { addToTeam } = usePokemonContext();  // Initialize selectedMoves from props and fetch their types
   useEffect(() => {
-    if (savedPokemon.selectedMoves) {
+    if (savedPokemon.selectedMoves && savedPokemon.selectedMoves.length > 0) {
+      // Set the selected moves
       setSelectedMoves(savedPokemon.selectedMoves);
+      
+      // Extract move types from saved moves for the moveTypes state
+      const newMoveTypes = {};
+      const newMoveClasses = {};
+      
+      savedPokemon.selectedMoves.forEach(move => {
+        if (move.type) {
+          newMoveTypes[move.name] = move.type;
+        }
+        if (move.damageClass) {
+          newMoveClasses[move.name] = move.damageClass;
+        }
+      });
+      
+      // Update move types and classes states if we have data
+      if (Object.keys(newMoveTypes).length > 0) {
+        setMoveTypes(prev => ({ ...prev, ...newMoveTypes }));
+      }
+      
+      if (Object.keys(newMoveClasses).length > 0) {
+        setMoveClasses(prev => ({ ...prev, ...newMoveClasses }));
+      }
+      
+      // Notify parent component
+      if (onSaveMoves) {
+        onSaveMoves(savedPokemon.selectedMoves);
+      }
     }
-  }, [savedPokemon]);
+  }, [savedPokemon, onSaveMoves]);
+  
+  // Re-render stats when IVs, EVs, level or nature changes
+  useEffect(() => {
+    // This will force the component to re-render stats when these props change
+    console.log("Stats inputs changed, recalculating...");
+  }, [evs, ivs, level, nature]);
 
   // Handle move selection (max 4)
   const handleMoveSelect = (move) => {
@@ -88,30 +120,67 @@ function PokemonInfo({
     }
     setItemSuggestions([]);
   };
-
   // Add the current Pokemon to the team
   const handleAddToTeam = () => {
     setIsSaving(true);
     
     // Calculate final stats
     const calculatedStats = {};
-    savedPokemon.stats.forEach(stat => {
-      const isHP = stat.stat.name.toLowerCase() === 'hp';
-      const mappedStat = statMapping[stat.stat.name.toLowerCase()];
-      const natureMultiplier = natureMultipliers[nature][mappedStat] || 1;
-      
-      const calculatedStat = isHP
-        ? calculateHP(stat.base_stat, ivs.hp, evs.hp, level)
-        : calculateStat(
-            stat.base_stat,
-            ivs[mappedStat],
-            evs[mappedStat],
-            level,
-            natureMultiplier
-          );
-      
-      calculatedStats[mappedStat] = calculatedStat;
-    });
+    
+    // Handle different formats of stats data
+    if (Array.isArray(savedPokemon.stats)) {
+      // Handle array format (from PokeAPI)
+      savedPokemon.stats.forEach(stat => {
+        // Only process if stat and stat.stat exist
+        if (!stat || !stat.stat) return;
+        
+        const isHP = stat.stat.name.toLowerCase() === 'hp';
+        const mappedStat = statMapping[stat.stat.name.toLowerCase()];
+        
+        // Skip if we can't map the stat
+        if (!mappedStat) return;
+        
+        const natureMultiplier = natureMultipliers[nature][mappedStat] || 1;
+        
+        const calculatedStat = isHP
+          ? calculateHP(stat.base_stat, ivs.hp, evs.hp, level)
+          : calculateStat(
+              stat.base_stat,
+              ivs[mappedStat],
+              evs[mappedStat],
+              level,
+              natureMultiplier
+            );
+        
+        calculatedStats[mappedStat] = calculatedStat;
+      });
+    } else if (savedPokemon.baseStats) {
+      // Alternative way to calculate stats if we have baseStats directly
+      const statKeys = ['hp', 'attack', 'defense', 'spAttack', 'spDefense', 'speed'];
+      statKeys.forEach(statKey => {
+        const isHP = statKey === 'hp';
+        const baseStat = savedPokemon.baseStats[statKey] || 0;
+        const natureMultiplier = natureMultipliers[nature][statKey] || 1;
+        
+        const calculatedStat = isHP
+          ? calculateHP(baseStat, ivs.hp, evs.hp, level)
+          : calculateStat(
+              baseStat,
+              ivs[statKey],
+              evs[statKey],
+              level,
+              natureMultiplier
+            );
+        
+        calculatedStats[statKey] = calculatedStat;
+      });
+    } else if (typeof savedPokemon.stats === 'object' && !Array.isArray(savedPokemon.stats)) {
+      // Copy existing stats and recalculate them
+      Object.keys(savedPokemon.stats).forEach(statKey => {
+        // Use existing stats as a base, if needed recalculate them
+        calculatedStats[statKey] = savedPokemon.stats[statKey];
+      });
+    }
 
     // Prepare selected moves with types
     const movesWithTypes = selectedMoves.map(move => ({
@@ -125,7 +194,7 @@ function PokemonInfo({
       id: savedPokemon.id,
       name: savedPokemon.name,
       level: level,
-      sprite: savedPokemon.sprites?.front_default,
+      sprite: savedPokemon.sprite || savedPokemon.sprites?.front_default,
       nature: nature,
       item: item,
       types: savedPokemon.types?.map(type => type.type?.name || type) || [],
@@ -414,41 +483,110 @@ function PokemonInfo({
           </ul>
         )}
       </div>
-      
-      {/* Stats display */}
+        {/* Stats display */}
       <div>
-        <h4>Estadísticas:</h4>
-        {savedPokemon.stats?.map((stat, index) => {
-          const isHP = stat.stat?.name.toLowerCase() === 'hp';
-          const mappedStat = statMapping[stat.stat?.name.toLowerCase() || ''];
-          const natureMultiplier =
-            natureMultipliers[nature][mappedStat] || 1;
-          const baseStat = stat.base_stat || (stat.stat?.name ? savedPokemon.baseStats?.[stat.stat.name] : 0) || 0;  
-          const calculatedStat = isHP
-            ? calculateHP(baseStat, ivs.hp, evs.hp, level)
-            : calculateStat(
-                baseStat,
-                ivs[mappedStat],
-                evs[mappedStat],
-                level,
-                natureMultiplier
-              );
-          return (
-            <div key={index} style={{ marginBottom: '10px' }}>
-              <strong>{stat.stat?.name.toUpperCase() || mappedStat.toUpperCase()}:</strong>
-              <div style={{ background: '#ddd', width: '100%', height: '10px', position: 'relative' }}>
-                <div
-                  style={{
-                    background: '#4caf50',
-                    width: `${(calculatedStat / 255) * 100}%`, // Placeholder percentage calculation
-                    height: '100%',
-                  }}
-                ></div>
+        <h4>Estadísticas:</h4>        {Array.isArray(savedPokemon.stats) ? (
+          // Handle array format (from PokeAPI)
+          savedPokemon.stats.map((stat, index) => {
+            const isHP = stat.stat?.name.toLowerCase() === 'hp';
+            const mappedStat = statMapping[stat.stat?.name.toLowerCase() || ''];
+            const natureMultiplier =
+              natureMultipliers[nature][mappedStat] || 1;
+            const baseStat = stat.base_stat || (stat.stat?.name ? savedPokemon.baseStats?.[stat.stat.name] : 0) || 0;  
+            
+            // Calculate the stat based on current IV, EV, and nature values
+            const calculatedStat = isHP
+              ? calculateHP(baseStat, ivs.hp, evs.hp, level)
+              : calculateStat(
+                  baseStat,
+                  ivs[mappedStat],
+                  evs[mappedStat],
+                  level,
+                  natureMultiplier
+                );
+                
+            return (
+              <div key={index} style={{ marginBottom: '10px' }}>
+                <strong>{stat.stat?.name.toUpperCase() || mappedStat.toUpperCase()}:</strong>
+                <div style={{ 
+                  background: '#ddd', 
+                  width: '100%', 
+                  height: '10px', 
+                  position: 'relative',
+                  borderRadius: '5px',
+                  overflow: 'hidden'
+                }}>
+                  <div
+                    style={{
+                      background: '#4caf50',
+                      width: `${(calculatedStat / 255) * 100}%`, // Placeholder percentage calculation
+                      height: '100%',
+                    }}
+                  ></div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span>Base: {baseStat}</span>
+                  <span>Calculated: <b>{calculatedStat}</b></span>
+                </div>
               </div>
-              <span>{calculatedStat}</span>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : savedPokemon.stats && typeof savedPokemon.stats === 'object' ? (
+          // Handle object format (from team data)
+          Object.entries(savedPokemon.stats).map(([statKey, statValue], index) => {
+            // Get the base stat for recalculation
+            const baseStatValue = savedPokemon.baseStats?.[statKey] || 
+                               (Array.isArray(savedPokemon.stats) ? 
+                                 savedPokemon.stats.find(s => s.stat?.name?.toLowerCase() === statKey)?.base_stat : 
+                                 80); // Fallback value
+            
+            const isHP = statKey === 'hp';
+            const natureMultiplier = natureMultipliers[nature][statKey] || 1;
+            
+            // Recalculate based on current IVs, EVs and nature
+            const recalculatedStat = isHP
+              ? calculateHP(baseStatValue, ivs.hp, evs.hp, level)
+              : calculateStat(
+                  baseStatValue,
+                  ivs[statKey],
+                  evs[statKey],
+                  level,
+                  natureMultiplier
+                );
+                
+            // Use recalculated stat if available, otherwise fallback to the original
+            const displayStat = recalculatedStat || statValue;
+            
+            return (
+              <div key={index} style={{ marginBottom: '10px' }}>
+                <strong>{statKey.toUpperCase()}:</strong>
+                <div style={{ 
+                  background: '#ddd', 
+                  width: '100%', 
+                  height: '10px', 
+                  position: 'relative',
+                  borderRadius: '5px',
+                  overflow: 'hidden'
+                }}>
+                  <div
+                    style={{
+                      background: '#4caf50',
+                      width: `${(displayStat / 255) * 100}%`,
+                      height: '100%',
+                    }}
+                  ></div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span>Base: {baseStatValue || 'N/A'}</span>
+                  <span>Calculated: <b>{displayStat}</b></span>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          // No stats available
+          <p>No statistics available for this Pokémon</p>
+        )}
       </div>
 
       {savedPokemon.strategyUrl && (
@@ -619,8 +757,7 @@ function PokemonInfo({
             </div>
           )}
         </div>
-      )}
-      {!isEditing && selectedMoves.length === 0 && (
+      )}      {!isEditing && selectedMoves.length === 0 && (
         <div style={{ marginTop: '15px', color: 'red', fontStyle: 'italic' }}>
           Please select at least one move to add this Pokémon to your team.
         </div>

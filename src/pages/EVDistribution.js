@@ -1,7 +1,8 @@
 /* 
   ! Imports and Constants 
 */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import recomendations from '../recomend.json';
 import natureMultipliers from '../natureMultipliers.json';
 import '../App.css';
@@ -10,11 +11,22 @@ import EVForm from '../components/EVForm';
 import IVForm from '../components/IVForm';
 import PokemonInfo from '../components/PokemonInfo';
 import PokemonSearch from './PokemonSearch';
+import { usePokemonContext } from '../context/PokemonContext';
 
 /* 
   ! Main Component: EVDistribution 
 */
 function EVDistribution({ savedPokemon: initialPokemon }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { updatePokemon } = usePokemonContext();
+
+  // Get location state data
+  const locationState = location.state || {};
+  const pokemonFromLocation = locationState.pokemon;
+  const slotIndex = locationState.slotIndex;
+  const isEditing = locationState.isEditing || false;
+  
   /* 
     * State Declarations 
   */
@@ -44,7 +56,50 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
   const [showPopup, setShowPopup] = useState(false);
   const [selectedMoves, setSelectedMoves] = useState([]);
   const [savedPokemon, setSavedPokemon] = useState(initialPokemon);
-  const [showSearch, setShowSearch] = useState(!initialPokemon);
+  const [showSearch, setShowSearch] = useState(!initialPokemon && !pokemonFromLocation);
+  const [item, setItem] = useState('');
+
+  // Load Pokemon data from location state
+  useEffect(() => {
+    // Check if there's location state data to load
+    if (pokemonFromLocation) {
+      console.log('Loading Pokemon data from location state:', pokemonFromLocation);
+      
+      // Set saved Pokemon
+      setSavedPokemon(pokemonFromLocation);
+      setShowSearch(false);
+      
+      // Load EVs if available
+      if (pokemonFromLocation.evs) {
+        setEvs(pokemonFromLocation.evs);
+      }
+      
+      // Load IVs if available
+      if (pokemonFromLocation.ivs) {
+        setIvs(pokemonFromLocation.ivs);
+      }
+      
+      // Load level if available
+      if (pokemonFromLocation.level) {
+        setLevel(pokemonFromLocation.level);
+      }
+      
+      // Load nature if available
+      if (pokemonFromLocation.nature) {
+        setNature(pokemonFromLocation.nature);
+      }
+      
+      // Load item if available
+      if (pokemonFromLocation.item) {
+        setItem(pokemonFromLocation.item);
+      }
+      
+      // Load selected moves if available
+      if (pokemonFromLocation.selectedMoves && pokemonFromLocation.selectedMoves.length > 0) {
+        setSelectedMoves(pokemonFromLocation.selectedMoves);
+      }
+    }
+  }, [pokemonFromLocation]);
 
   const statMapping = {
     'hp': 'hp',
@@ -58,7 +113,6 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
   // * Utility Functions grouped in one object
   const utils = {
     togglePopup: () => setShowPopup((prev) => !prev),
-
 
     handleChange: (stat, value, type) => {
       value = parseInt(value, 10);
@@ -85,6 +139,77 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
     calculateStat: (base, iv, ev, level, natureMultiplier) => {
       return Math.floor(((((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5) * natureMultiplier);
     },
+      // Save changes to team when editing
+    saveChanges: () => {
+      if (isEditing && slotIndex !== undefined && savedPokemon) {
+        // Calculate final stats
+        const calculatedStats = {};
+        
+        // Helper function to get base stat value regardless of data structure
+        const getBaseStat = (statKey) => {
+          // Try to get from baseStats if available
+          if (savedPokemon.baseStats && savedPokemon.baseStats[statKey]) {
+            return savedPokemon.baseStats[statKey];
+          }
+          
+          // If stats is an array (from PokeAPI)
+          if (Array.isArray(savedPokemon.stats)) {
+            const statObj = savedPokemon.stats.find(s => 
+              s.stat && s.stat.name && s.stat.name.toLowerCase() === statKey.toLowerCase());
+            if (statObj && statObj.base_stat) {
+              return statObj.base_stat;
+            }
+          }
+          
+          // Default value if nothing else works
+          return 80; // Fallback value for base stat
+        };
+        
+        // Calculate stats for each stat key
+        const statKeys = ['hp', 'attack', 'defense', 'spAttack', 'spDefense', 'speed'];
+        statKeys.forEach(statKey => {
+          const isHP = statKey === 'hp';
+          const baseStat = getBaseStat(statKey);
+          const natureMultiplier = natureMultipliers[nature][statKey] || 1;
+          
+          const calculatedStat = isHP
+            ? utils.calculateHP(baseStat, ivs.hp, evs.hp, level)
+            : utils.calculateStat(
+                baseStat,
+                ivs[statKey],
+                evs[statKey],
+                level,
+                natureMultiplier
+              );
+          
+          calculatedStats[statKey] = calculatedStat;
+        });
+        
+        // Create updated Pokemon data
+        const updatedPokemon = {
+          ...savedPokemon,
+          evs,
+          ivs,
+          level,
+          nature,
+          item,
+          selectedMoves,
+          stats: calculatedStats
+        };
+        
+        // Update Pokemon in team context
+        updatePokemon(slotIndex, updatedPokemon);
+        
+        // Navigate back to team builder
+        navigate('/team-builder');
+      }
+    },
+    
+    // Cancel editing and return to team builder
+    cancelEdit: () => {
+      navigate('/team-builder');
+    },
+    
     getRecommendations: () => {
       const recommendations = [];
       for (const [stat, value] of Object.entries(evs)) {
@@ -177,25 +302,71 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
           />
         </div>
       ) : (
-        <>
-          <div className="ev-form-container">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop:'10px', marginBottom: '10px' }}>
+        <>          <div className="ev-form-container">
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: isEditing ? 'space-between' : 'center', 
+              marginTop:'10px', 
+              marginBottom: '10px',
+              padding: '0 15px'
+            }}>
               
-              <button 
-                onClick={() => setShowSearch(true)} 
-                style={{                  
-                  padding: '8px 12px',
-                  backgroundColor: '#3498DB',
-                  color: 'white',
-                  border: '1px solid #2980B9', // Opcional, para que el botón tenga "cuadro"
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  boxShadow: '0 0 5px rgba(0,0,0,0.2)' // Opcional, para dar sensación de cuadro
-                }}
-              >
-                Change Pokémon
-              </button>
+              {isEditing ? (
+                <>
+                  <h3 style={{ margin: 0 }}>Editing {savedPokemon?.name}</h3>
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={utils.saveChanges}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#27AE60',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        boxShadow: '0 0 5px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      Save Changes
+                    </button>
+                    
+                    <button
+                      onClick={utils.cancelEdit}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#95A5A6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        boxShadow: '0 0 5px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button 
+                  onClick={() => setShowSearch(true)} 
+                  style={{                  
+                    padding: '8px 12px',
+                    backgroundColor: '#3498DB',
+                    color: 'white',
+                    border: '1px solid #2980B9',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    boxShadow: '0 0 5px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  Change Pokémon
+                </button>
+              )}
             </div>
 
             {/* 
@@ -231,8 +402,7 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
             /* 
               * Saved Pokémon Information
               ? Replaced with <PokemonInfo /> component
-            */
-            <PokemonInfo
+            */            <PokemonInfo
               savedPokemon={savedPokemon}
               level={level}
               setLevel={setLevel}
@@ -249,6 +419,9 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
               groupMovesByMethod={utils.groupMovesByMethod}
               getNatureLabel={utils.getNatureLabel}
               onSaveMoves={handleSaveMoves}
+              item={item}
+              setItem={setItem}
+              isEditing={isEditing}
             />
           )}
 
