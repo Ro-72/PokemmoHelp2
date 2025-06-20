@@ -12,6 +12,7 @@ import IVForm from '../components/IVForm';
 import PokemonInfo from '../components/PokemonInfo';
 import PokemonSearch from './PokemonSearch';
 import { usePokemonContext } from '../context/PokemonContext';
+import pokemonMovesData from '../pokemon_moves.json'; // Importar los datos de movimientos
 
 /* 
   ! Main Component: EVDistribution 
@@ -58,15 +59,59 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
   const [savedPokemon, setSavedPokemon] = useState(initialPokemon);
   const [showSearch, setShowSearch] = useState(!initialPokemon && !pokemonFromLocation);
   const [item, setItem] = useState('');
-
   // Load Pokemon data from location state
   useEffect(() => {
     // Check if there's location state data to load
     if (pokemonFromLocation) {
       console.log('Loading Pokemon data from location state:', pokemonFromLocation);
       
-      // Set saved Pokemon
-      setSavedPokemon(pokemonFromLocation);
+      let updatedPokemon = {...pokemonFromLocation};
+      
+      // Load moves from local data if they don't exist or are incomplete
+      if (!pokemonFromLocation.moves || pokemonFromLocation.moves.length === 0) {
+        try {
+          // Use normalized name for move lookup
+          const baseName = getBasePokemonName(pokemonFromLocation.name);
+          const movesRaw = pokemonMovesData[baseName]?.moves || [];
+          
+          if (movesRaw.length > 0) {
+            console.log('Found moves in local data for:', baseName);
+            
+            // Map moves to the expected structure
+            const moves = movesRaw.map(move => {
+              // Determine method based on fields
+              let method = 'unknown';
+              if ('level' in move) method = 'level-up';
+              else if (move.type === 'egg_moves') method = 'egg';
+              else if (move.type === 'move_tutor') method = 'tutor';
+              else if (move.type === 'move_learner_tools' || move.type === 'special_moves') method = 'machine';
+              
+              return {
+                name: move.name || move.id || '(desconocido)',
+                method,
+                level: move.level ?? 'N/A',
+                mtId: method === 'machine' ? move.id : null,
+                breedingPartner: method === 'egg' ? (move.breedingPartner || null) : null,
+                type: move.move_type || null,
+              };
+            });
+            
+            // Add moves to the Pokemon data
+            updatedPokemon = {
+              ...updatedPokemon,
+              moves: moves,
+              strategyUrl: `https://www.pokexperto.net/index2.php?seccion=nds/nationaldex/estrategia&pk=${pokemonFromLocation.id}`
+            };
+            
+            console.log('Added moves to Pokemon:', moves.length);
+          }
+        } catch (error) {
+          console.error('Error loading moves from local data:', error);
+        }
+      }
+      
+      // Set saved Pokemon with potentially updated moves
+      setSavedPokemon(updatedPokemon);
       setShowSearch(false);
       
       // Load EVs if available
@@ -100,7 +145,6 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
       }
     }
   }, [pokemonFromLocation]);
-
   const statMapping = {
     'hp': 'hp',
     'attack': 'attack',
@@ -108,6 +152,17 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
     'special-attack': 'spAttack',
     'special-defense': 'spDefense',
     'speed': 'speed',
+  };
+  
+  // Función para normalizar nombres de Pokémon para buscar movimientos
+  const getBasePokemonName = (name) => {
+    if (!name) return '';
+    // Remove dashes and anything after them for forms like "darmanitan-standard"
+    // Also handle some common form patterns
+    return name
+      .toLowerCase()
+      .replace(/-.*$/, '') // Remove everything after first dash
+      .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric chars for safety
   };
 
   // * Utility Functions grouped in one object
@@ -138,10 +193,29 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
     },
     calculateStat: (base, iv, ev, level, natureMultiplier) => {
       return Math.floor(((((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5) * natureMultiplier);
-    },
-      // Save changes to team when editing
-    saveChanges: () => {
+    },    // Save changes to team when editing
+    saveChanges: async () => {
       if (isEditing && slotIndex !== undefined && savedPokemon) {
+        // Check if we need to fetch Pokemon data from API
+        let baseStatsData = null;
+        let needToFetchStats = !savedPokemon.stats || 
+          (Array.isArray(savedPokemon.stats) && savedPokemon.stats.length === 0) ||
+          (!Array.isArray(savedPokemon.stats) && Object.keys(savedPokemon.stats).length === 0);
+        
+        // If we need stats data and we have an ID, fetch from API
+        if (needToFetchStats && savedPokemon.id) {
+          try {
+            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${savedPokemon.id}`);
+            if (response.ok) {
+              const data = await response.json();
+              baseStatsData = data.stats;
+              console.log('Fetched base stats from API:', baseStatsData);
+            }
+          } catch (error) {
+            console.error('Error fetching Pokemon stats from API:', error);
+          }
+        }
+        
         // Calculate final stats
         const calculatedStats = {};
         
@@ -152,17 +226,31 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
             return savedPokemon.baseStats[statKey];
           }
           
-          // If stats is an array (from PokeAPI)
-          if (Array.isArray(savedPokemon.stats)) {
-            const statObj = savedPokemon.stats.find(s => 
-              s.stat && s.stat.name && s.stat.name.toLowerCase() === statKey.toLowerCase());
+          // If stats is an array (from PokeAPI or freshly fetched)
+          const statsArray = baseStatsData || (Array.isArray(savedPokemon.stats) ? savedPokemon.stats : null);
+          if (statsArray) {
+            // Map from statKey to the API stat name format
+            const apiStatName = statKey === 'spAttack' ? 'special-attack' :
+                               statKey === 'spDefense' ? 'special-defense' : statKey;
+            
+            const statObj = statsArray.find(s => 
+              s.stat && s.stat.name && s.stat.name.toLowerCase() === apiStatName.toLowerCase());
+            
             if (statObj && statObj.base_stat) {
               return statObj.base_stat;
             }
           }
           
-          // Default value if nothing else works
-          return 80; // Fallback value for base stat
+          // Default values by stat if nothing else works
+          const defaultValues = {
+            hp: 80,
+            attack: 80,
+            defense: 80,
+            spAttack: 80, 
+            spDefense: 80,
+            speed: 80
+          };
+          return defaultValues[statKey] || 80;
         };
         
         // Calculate stats for each stat key

@@ -26,8 +26,9 @@ function PokemonInfo({
 }) {
   // Track selected moves for this Pokémon
   const [selectedMoves, setSelectedMoves] = useState(savedPokemon.selectedMoves || []);
-  const [itemSuggestions, setItemSuggestions] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [itemSuggestions, setItemSuggestions] = useState([]);  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [baseStats, setBaseStats] = useState(null);
   const navigate = useNavigate();
   
   // Use Pokemon context
@@ -63,14 +64,98 @@ function PokemonInfo({
       if (onSaveMoves) {
         onSaveMoves(savedPokemon.selectedMoves);
       }
+      
+      // When editing, make sure to automatically show the tab that has the most selected moves
+      if (isEditing) {
+        const methodCounts = {
+          'level-up': 0,
+          'machine': 0,
+          'egg': 0,
+          'tutor': 0
+        };
+        
+        savedPokemon.selectedMoves.forEach(move => {
+          if (move.method && methodCounts[move.method] !== undefined) {
+            methodCounts[move.method]++;
+          }
+        });
+        
+        // Find method with most moves
+        let mostUsedMethod = 'level-up';
+        let maxCount = 0;
+        
+        Object.entries(methodCounts).forEach(([method, count]) => {
+          if (count > maxCount) {
+            maxCount = count;
+            mostUsedMethod = method;
+          }
+        });
+        
+        // Set the active tab to the method with the most selected moves
+        if (setActiveTab && maxCount > 0) {
+          setActiveTab(mostUsedMethod);
+          console.log(`Auto-selected tab ${mostUsedMethod} based on selected moves`);
+        }
+      }
     }
-  }, [savedPokemon, onSaveMoves]);
-  
-  // Re-render stats when IVs, EVs, level or nature changes
+  }, [savedPokemon, onSaveMoves, isEditing, setActiveTab]);
+    // Re-render stats when IVs, EVs, level or nature changes
   useEffect(() => {
     // This will force the component to re-render stats when these props change
     console.log("Stats inputs changed, recalculating...");
   }, [evs, ivs, level, nature]);
+    // Fetch base stats from API if not available
+  useEffect(() => {
+    // Check if we need to fetch stats (only if we have an ID but no stats or empty stats)
+    const needToFetchStats = savedPokemon && savedPokemon.id && 
+      (!savedPokemon.stats || 
+       (Array.isArray(savedPokemon.stats) && savedPokemon.stats.length === 0) ||
+       (!Array.isArray(savedPokemon.stats) && Object.keys(savedPokemon.stats || {}).length === 0));
+    
+    if (needToFetchStats) {
+      // Fetch Pokemon data from API
+      const fetchPokemonData = async () => {
+        try {
+          setIsLoadingStats(true);
+          console.log('Fetching Pokemon data for ID:', savedPokemon.id);
+          const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${savedPokemon.id}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Store the base stats separately for stat calculations
+            setBaseStats(data.stats);
+            
+            // Update the Pokemon with API data
+            const updatedPokemon = {
+              ...savedPokemon,
+              stats: data.stats,
+              sprites: data.sprites,
+              types: data.types.map(t => t.type.name),
+              moves: data.moves.map(m => ({
+                name: m.move.name.replace(/-/g, ' '),
+                method: m.version_group_details[0]?.move_learn_method.name === 'level-up' ? 'level-up' :
+                        m.version_group_details[0]?.move_learn_method.name === 'egg' ? 'egg' :
+                        m.version_group_details[0]?.move_learn_method.name === 'tutor' ? 'tutor' : 'machine',
+                level: m.version_group_details[0]?.level_learned_at || 0
+              }))
+            };
+            
+            // Update the component's Pokemon data
+            console.log('Updated Pokemon with API data:', updatedPokemon);
+            // Here we could emit an event or call a callback to update parent
+            // For now, we just have the data in the baseStats state
+          }
+        } catch (error) {
+          console.error('Error fetching Pokemon data from API:', error);
+        } finally {
+          setIsLoadingStats(false);
+        }
+      };
+      
+      fetchPokemonData();
+    }
+  }, [savedPokemon?.id]);
 
   // Handle move selection (max 4)
   const handleMoveSelect = (move) => {
@@ -485,7 +570,11 @@ function PokemonInfo({
       </div>
         {/* Stats display */}
       <div>
-        <h4>Estadísticas:</h4>        {Array.isArray(savedPokemon.stats) ? (
+        <h4>Estadísticas:</h4>        {isLoadingStats ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p>Loading stats data...</p>
+          </div>
+        ) : Array.isArray(savedPokemon.stats) ? (
           // Handle array format (from PokeAPI)
           savedPokemon.stats.map((stat, index) => {
             const isHP = stat.stat?.name.toLowerCase() === 'hp';
@@ -520,6 +609,56 @@ function PokemonInfo({
                     style={{
                       background: '#4caf50',
                       width: `${(calculatedStat / 255) * 100}%`, // Placeholder percentage calculation
+                      height: '100%',
+                    }}
+                  ></div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span>Base: {baseStat}</span>
+                  <span>Calculated: <b>{calculatedStat}</b></span>
+                </div>
+              </div>
+            );
+          })
+        ) : baseStats ? (
+          // Use the baseStats we fetched from API
+          baseStats.map((stat, index) => {
+            const isHP = stat.stat?.name.toLowerCase() === 'hp';
+            const apiStatName = stat.stat?.name.toLowerCase() || '';
+            // Map API stat name to our internal naming
+            const mappedStat = statMapping[apiStatName] || 
+                             (apiStatName === 'special-attack' ? 'spAttack' : 
+                              apiStatName === 'special-defense' ? 'spDefense' : apiStatName);
+            
+            const natureMultiplier = natureMultipliers[nature][mappedStat] || 1;
+            const baseStat = stat.base_stat || 0;  
+            
+            // Calculate the stat based on current IV, EV, and nature values
+            const calculatedStat = isHP
+              ? calculateHP(baseStat, ivs.hp, evs.hp, level)
+              : calculateStat(
+                  baseStat,
+                  ivs[mappedStat],
+                  evs[mappedStat],
+                  level,
+                  natureMultiplier
+                );
+                
+            return (
+              <div key={index} style={{ marginBottom: '10px' }}>
+                <strong>{stat.stat?.name.toUpperCase() || mappedStat.toUpperCase()}:</strong>
+                <div style={{ 
+                  background: '#ddd', 
+                  width: '100%', 
+                  height: '10px', 
+                  position: 'relative',
+                  borderRadius: '5px',
+                  overflow: 'hidden'
+                }}>
+                  <div
+                    style={{
+                      background: '#4caf50',
+                      width: `${(calculatedStat / 255) * 100}%`,
                       height: '100%',
                     }}
                   ></div>
