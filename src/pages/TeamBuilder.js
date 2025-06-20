@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import completePokemonData from '../complete_pokemon_data.json';
+import { usePokemonContext } from '../context/PokemonContext';
+import { useNavigate } from 'react-router-dom';
 
 const TYPE_COLORS = {
   'normal': '#A8A878',
@@ -65,12 +67,26 @@ const MOVE_TYPE_EFFECTIVENESS = {
   fairy: { notVeryEffective: ['fire', 'poison', 'steel'], superEffective: ['fighting', 'dragon', 'dark'], noEffect: [] }
 };
 
-function TeamBuilder({ team, setTeam }) {
+function TeamBuilder() {
   const [suggestions, setSuggestions] = useState([]);
   const [searchTerms, setSearchTerms] = useState(Array(6).fill(''));
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [fairyTypeEnabled, setFairyTypeEnabled] = useState(false);
+  
+  // Use the Pokemon context
+  const { team, setTeam, removePokemon, clearTeam, updatePokemon } = usePokemonContext();
+  const navigate = useNavigate();
   
   const allPokemon = completePokemonData.pokemon || [];
+
+  // Get all types with fairy conditionally included
+  const getFilteredTypes = () => {
+    const types = Object.keys(TYPE_EFFECTIVENESS);
+    if (!fairyTypeEnabled) {
+      return types.filter(type => type !== 'fairy');
+    }
+    return types;
+  };
 
   // Initialize search terms based on team
   useEffect(() => {
@@ -99,8 +115,16 @@ function TeamBuilder({ team, setTeam }) {
   };
 
   const handlePokemonSelect = (pokemon, slotIndex) => {
+    // Convert the selected pokemon to the required format
+    const formattedPokemon = {
+      id: pokemon.id,
+      name: pokemon.name,
+      sprite: pokemon.sprite,
+      types: pokemon.types || []
+    };
+    
     const newTeam = [...team];
-    newTeam[slotIndex] = pokemon;
+    newTeam[slotIndex] = formattedPokemon;
     setTeam(newTeam);
     
     const newSearchTerms = [...searchTerms];
@@ -111,27 +135,22 @@ function TeamBuilder({ team, setTeam }) {
     setSelectedSlot(null);
   };
 
-  const removePokemon = (slotIndex) => {
-    const newTeam = [...team];
-    newTeam[slotIndex] = null;
-    setTeam(newTeam);
-    
-    const newSearchTerms = [...searchTerms];
-    newSearchTerms[slotIndex] = '';
-    setSearchTerms(newSearchTerms);
-  };
-
-  const clearTeam = () => {
-    if (window.confirm('Are you sure you want to clear all Pokémon from your team?')) {
-      setTeam(Array(6).fill(null));
-      setSearchTerms(Array(6).fill(''));
-    }
+  // Function to handle editing a Pokemon
+  const handleEditPokemon = (pokemon, slotIndex) => {
+    // Navigate to EVDistribution with pokemon data and slotIndex
+    navigate('/ev-distribution', { 
+      state: { 
+        pokemon, 
+        slotIndex,
+        isEditing: true
+      } 
+    });
   };
 
   // Calculate type effectiveness for the team
   const calculateTypeEffectiveness = () => {
     const typeChart = {};
-    const allTypes = Object.keys(TYPE_EFFECTIVENESS);
+    const allTypes = getFilteredTypes();
     
     allTypes.forEach(attackingType => {
       typeChart[attackingType] = {
@@ -143,10 +162,17 @@ function TeamBuilder({ team, setTeam }) {
 
     team.forEach((pokemon, slotIndex) => {
       if (pokemon && pokemon.types) {
+        // Filter out fairy type from pokemon.types if fairy is disabled
+        const filteredTypes = fairyTypeEnabled ? 
+          pokemon.types : 
+          pokemon.types.filter(type => type !== 'fairy');
+          
         allTypes.forEach(attackingType => {
           let effectiveness = 1;
           
-          pokemon.types.forEach(defendingType => {
+          filteredTypes.forEach(defendingType => {
+            if (!fairyTypeEnabled && defendingType === 'fairy') return;
+            
             const typeData = TYPE_EFFECTIVENESS[defendingType];
             if (typeData) {
               if (typeData.immune.includes(attackingType)) {
@@ -178,7 +204,7 @@ function TeamBuilder({ team, setTeam }) {
   // Calculate offensive coverage based on selected Pokemon moves from analysis
   const calculateOffensiveCoverage = () => {
     const coverageChart = {};
-    const allTypes = Object.keys(TYPE_EFFECTIVENESS);
+    const allTypes = getFilteredTypes();
     
     allTypes.forEach(defendingType => {
       coverageChart[defendingType] = {
@@ -200,6 +226,9 @@ function TeamBuilder({ team, setTeam }) {
           if (move.type) {
             moveType = move.type.toLowerCase();
           }
+          
+          // Skip fairy type moves if fairy is disabled
+          if (!fairyTypeEnabled && moveType === 'fairy') return;
           
           if (moveType && Object.keys(MOVE_TYPE_EFFECTIVENESS).includes(moveType)) {
             moveTypes.add(moveType);
@@ -287,6 +316,7 @@ function TeamBuilder({ team, setTeam }) {
 
   const typeChart = calculateTypeEffectiveness();
   const offensiveCoverage = calculateOffensiveCoverage();
+  const filteredTypes = getFilteredTypes();
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -298,20 +328,64 @@ function TeamBuilder({ team, setTeam }) {
         backgroundColor: '#F8F9FA', 
         padding: '20px', 
         borderRadius: '10px', 
-        marginBottom: '30px' 
+        marginBottom: '30px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap'
       }}>
-        <p style={{ 
-          margin: '0 0 15px 0', 
-          color: '#555', 
-          fontSize: '16px',
-          fontWeight: 'bold'
-        }}>
-          Build your perfect Pokémon team and analyze type coverage!
-        </p>
-        <p style={{ margin: 0, color: '#777', fontSize: '14px' }}>
-          Add up to 6 Pokémon to your team and see how well they cover each other's weaknesses. 
-          The table below shows how each type of attack affects your team.
-        </p>
+        <div>
+          <p style={{ 
+            margin: '0 0 15px 0', 
+            color: '#555', 
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }}>
+            Build your perfect Pokémon team and analyze type coverage!
+          </p>
+          <p style={{ margin: 0, color: '#777', fontSize: '14px' }}>
+            Add up to 6 Pokémon to your team and see how well they cover each other's weaknesses. 
+            The table below shows how each type of attack affects your team.
+          </p>
+        </div>
+        
+        <div>
+          <button 
+            onClick={() => setFairyTypeEnabled(prev => !prev)}
+            style={{
+              backgroundColor: fairyTypeEnabled ? '#EE99AC' : '#ccc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'background-color 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>Fairy Type</span>
+            <span style={{ 
+              display: 'inline-block',
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: fairyTypeEnabled ? '#4CAF50' : '#E74C3C',
+              border: '2px solid white'
+            }}></span>
+          </button>
+          <div style={{ 
+            fontSize: '11px', 
+            color: '#888', 
+            marginTop: '4px',
+            textAlign: 'center'
+          }}>
+            {fairyTypeEnabled ? 'Gen 6+ (Enabled)' : 'Gen 5 and Below (Disabled)'}
+          </div>
+        </div>
       </div>
 
       {/* Team Input Section */}
@@ -409,23 +483,58 @@ function TeamBuilder({ team, setTeam }) {
                       }}>
                         {pokemon.name}
                       </h4>
+                      {pokemon.level && (
+                        <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>
+                          Level: {pokemon.level}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
-                        {pokemon.types && pokemon.types.map((type, typeIndex) => (
+                        {pokemon.types && pokemon.types
+                          .filter(type => fairyTypeEnabled || type !== 'fairy')
+                          .map((type, typeIndex) => (
+                            <span
+                              key={typeIndex}
+                              style={{
+                                backgroundColor: TYPE_COLORS[type] || '#68A090',
+                                color: 'white',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                textTransform: 'capitalize'
+                              }}
+                            >
+                              {type}
+                            </span>
+                          ))
+                        }
+                        {/* Show indicator if a fairy type is hidden */}
+                        {!fairyTypeEnabled && pokemon.types && pokemon.types.includes('fairy') && (
                           <span
-                            key={typeIndex}
                             style={{
-                              backgroundColor: TYPE_COLORS[type] || '#68A090',
-                              color: 'white',
+                              backgroundColor: '#ccc',
+                              color: '#666',
                               padding: '2px 8px',
                               borderRadius: '12px',
                               fontSize: '11px',
-                              textTransform: 'capitalize'
+                              border: '1px dashed #999'
                             }}
                           >
-                            {type}
+                            fairy disabled
                           </span>
-                        ))}
+                        )}
                       </div>
+                      
+                      {/* Display nature and item if available */}
+                      {(pokemon.nature || pokemon.item) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', fontSize: '11px', color: '#666' }}>
+                          {pokemon.nature && pokemon.nature !== 'neutral' && (
+                            <div>Nature: <span style={{ fontWeight: 'bold' }}>{pokemon.nature}</span></div>
+                          )}
+                          {pokemon.item && (
+                            <div>Item: <span style={{ fontWeight: 'bold' }}>{pokemon.item}</span></div>
+                          )}
+                        </div>
+                      )}
                       
                       {/* Display selected moves with types */}
                       {pokemon.selectedMoves && pokemon.selectedMoves.length > 0 && (
@@ -434,39 +543,71 @@ function TeamBuilder({ team, setTeam }) {
                             Selected Moves:
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            {pokemon.selectedMoves.map((move, moveIndex) => (
-                              <div key={moveIndex} style={{
-                                fontSize: '10px',
-                                color: '#555',
-                                backgroundColor: '#F0F0F0',
-                                padding: '2px 6px',
-                                borderRadius: '8px',
-                                border: '1px solid #DDD',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}>
-                                <span>
-                                  {move.name}
-                                  {move.level && move.level !== 'N/A' && (
-                                    <span style={{ color: '#888', marginLeft: '4px' }}>
-                                      (Lv.{move.level})
+                            {pokemon.selectedMoves
+                              .filter(move => fairyTypeEnabled || move.type !== 'fairy')
+                              .map((move, moveIndex) => (
+                                <div key={moveIndex} style={{
+                                  fontSize: '10px',
+                                  color: '#555',
+                                  backgroundColor: '#F0F0F0',
+                                  padding: '2px 6px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #DDD',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}>
+                                  <span>
+                                    {move.name}
+                                    {move.level && move.level !== 'N/A' && (
+                                      <span style={{ color: '#888', marginLeft: '4px' }}>
+                                        (Lv.{move.level})
+                                      </span>
+                                    )}
+                                  </span>
+                                  {move.type && (
+                                    <span style={{
+                                      backgroundColor: TYPE_COLORS[move.type] || '#68A090',
+                                      color: 'white',
+                                      padding: '1px 4px',
+                                      borderRadius: '4px',
+                                      fontSize: '8px',
+                                      textTransform: 'capitalize',
+                                      marginLeft: '4px'
+                                    }}>
+                                      {move.type}
                                     </span>
                                   )}
-                                </span>
-                                {move.type && (
-                                  <span style={{
-                                    backgroundColor: TYPE_COLORS[move.type] || '#68A090',
-                                    color: 'white',
-                                    padding: '1px 4px',
-                                    borderRadius: '4px',
-                                    fontSize: '8px',
-                                    textTransform: 'capitalize',
-                                    marginLeft: '4px'
-                                  }}>
-                                    {move.type}
-                                  </span>
-                                )}
+                                </div>
+                              ))
+                            }
+                            {/* Show disabled moves indicator */}
+                            {!fairyTypeEnabled && 
+                             pokemon.selectedMoves.some(move => move.type === 'fairy') && (
+                              <div style={{
+                                fontSize: '10px',
+                                color: '#888',
+                                padding: '2px 6px',
+                                fontStyle: 'italic'
+                              }}>
+                                (Some fairy moves are hidden)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Display stats if available */}
+                      {pokemon.stats && Object.keys(pokemon.stats).length > 0 && (
+                        <div style={{ marginTop: '8px', fontSize: '10px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', marginBottom: '3px' }}>
+                            Stats:
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px' }}>
+                            {Object.entries(pokemon.stats).map(([statName, value], statIndex) => (
+                              <div key={statIndex} style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#F8F8F8', padding: '1px 4px', borderRadius: '2px' }}>
+                                <span style={{ textTransform: 'uppercase' }}>{statName}:</span>
+                                <span style={{ fontWeight: 'bold' }}>{value}</span>
                               </div>
                             ))}
                           </div>
@@ -475,20 +616,39 @@ function TeamBuilder({ team, setTeam }) {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => removePokemon(index)}
-                    style={{
-                      backgroundColor: '#E74C3C',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      padding: '5px 10px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button
+                      onClick={() => removePokemon(index)}
+                      style={{
+                        backgroundColor: '#E74C3C',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        padding: '5px 10px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        flex: '1'
+                      }}
+                    >
+                      Remove
+                    </button>
+                    
+                    <button
+                      onClick={() => handleEditPokemon(pokemon, index)}
+                      style={{
+                        backgroundColor: '#3498DB',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        padding: '5px 10px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        flex: '1'
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -527,9 +687,22 @@ function TeamBuilder({ team, setTeam }) {
           color: 'white',
           padding: '15px',
           fontSize: '18px',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          Offensive Coverage
+          <span>Offensive Coverage</span>
+          {!fairyTypeEnabled && (
+            <span style={{
+              fontSize: '12px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}>
+              Fairy type disabled
+            </span>
+          )}
         </div>
         
         <div style={{ overflowX: 'auto' }}>
@@ -586,7 +759,7 @@ function TeamBuilder({ team, setTeam }) {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(TYPE_EFFECTIVENESS).map(type => (
+              {filteredTypes.map(type => (
                 <tr key={type}>
                   <td style={{ 
                     padding: '8px 10px', 
@@ -660,9 +833,22 @@ function TeamBuilder({ team, setTeam }) {
           color: 'white',
           padding: '15px',
           fontSize: '18px',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          Defensive Coverage
+          <span>Defensive Coverage</span>
+          {!fairyTypeEnabled && (
+            <span style={{
+              fontSize: '12px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}>
+              Fairy type disabled
+            </span>
+          )}
         </div>
         
         <div style={{ overflowX: 'auto' }}>
@@ -706,7 +892,7 @@ function TeamBuilder({ team, setTeam }) {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(TYPE_EFFECTIVENESS).map(type => (
+              {filteredTypes.map(type => (
                 <tr key={type}>
                   <td style={{ 
                     padding: '8px 10px', 
@@ -782,6 +968,18 @@ function TeamBuilder({ team, setTeam }) {
             <span style={{ color: '#F44336', fontWeight: 'bold' }}>2×</span>
             <span>Super Effective (Weak)</span>
           </div>
+        </div>
+        
+        {/* Add info about Fairy type toggle */}
+        <div style={{ marginTop: '15px', fontSize: '13px', color: '#666' }}>
+          <p style={{ margin: '0', fontStyle: 'italic' }}>
+            <strong>Game Generation:</strong> {fairyTypeEnabled ? 
+              "Gen 6+ (X/Y and later) - Fairy type enabled" : 
+              "Gen 5 and below (Black/White and earlier) - Fairy type disabled"}
+          </p>
+          <p style={{ margin: '5px 0 0 0', fontStyle: 'italic' }}>
+            Use the Fairy Type toggle button to switch between game generations.
+          </p>
         </div>
       </div>
     </div>

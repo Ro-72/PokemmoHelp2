@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import completePokemonData from '../complete_pokemon_data.json';
 import pokemonMovesData from '../pokemon_moves.json';
+import { usePokemonContext } from '../context/PokemonContext';
 
 const regions = [
   'All Regions',
@@ -47,7 +48,7 @@ const getAllRoles = () => {
   return ['All Roles', ...Array.from(allRoles).sort()];
 };
 
-function PokemonRoles({ setSavedPokemon, addToTeam }) {
+function PokemonRoles({ setSavedPokemon }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
   const [selectedRole, setSelectedRole] = useState('All Roles');
@@ -60,6 +61,9 @@ function PokemonRoles({ setSavedPokemon, addToTeam }) {
   const navigate = useNavigate();
   const allRoles = getAllRoles();
   const allPokemon = completePokemonData.pokemon || [];
+  
+  // Use Pokemon context for addToTeam
+  const { addToTeam } = usePokemonContext();
 
   // Handle autocomplete suggestions
   useEffect(() => {
@@ -614,36 +618,34 @@ function PokemonRoles({ setSavedPokemon, addToTeam }) {
                 Add to Analysis
               </button>
               
-              {addToTeam && (
-                <button
-                  onClick={() => {
-                    // Convert Pokemon data to team format
-                    const teamPokemon = {
-                      id: pokemon.id,
-                      name: pokemon.name,
-                      sprite: pokemon.sprite,
-                      types: pokemon.types || []
-                    };
-                    addToTeam(teamPokemon);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    backgroundColor: '#3498DB',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.3s'
-                  }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#2980B9'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#3498DB'}
-                >
-                  Add to Team
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  // Convert Pokemon data to team format
+                  const teamPokemon = {
+                    id: pokemon.id,
+                    name: pokemon.name,
+                    sprite: pokemon.sprite,
+                    types: pokemon.types || []
+                  };
+                  addToTeam(teamPokemon);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  backgroundColor: '#3498DB',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#2980B9'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#3498DB'}
+              >
+                Add to Team
+              </button>
             </div>
           </div>
         ))}

@@ -9,11 +9,12 @@ import RecommendationPopup from '../components/RecommendationPopup';
 import EVForm from '../components/EVForm';
 import IVForm from '../components/IVForm';
 import PokemonInfo from '../components/PokemonInfo';
+import PokemonSearch from './PokemonSearch';
 
 /* 
   ! Main Component: EVDistribution 
 */
-function EVDistribution({ savedPokemon, addToTeam }) {
+function EVDistribution({ savedPokemon: initialPokemon }) {
   /* 
     * State Declarations 
   */
@@ -40,12 +41,10 @@ function EVDistribution({ savedPokemon, addToTeam }) {
   const [nature, setNature] = useState('neutral'); // Default nature
   const [expandedTab, setExpandedTab] = useState(null); // Track which tab is expanded
   const [activeTab, setActiveTab] = useState('level-up'); // Track the active tab
-  /* 
-    * Popup: Recommendations
-    ? Moved to <RecommendationPopup /> component
-  */
   const [showPopup, setShowPopup] = useState(false);
   const [selectedMoves, setSelectedMoves] = useState([]);
+  const [savedPokemon, setSavedPokemon] = useState(initialPokemon);
+  const [showSearch, setShowSearch] = useState(!initialPokemon);
 
   const statMapping = {
     'hp': 'hp',
@@ -104,6 +103,8 @@ function EVDistribution({ savedPokemon, addToTeam }) {
         egg: [],
         tutor: [],
       };
+      if (!moves) return grouped;
+      
       moves.forEach((move) => {
         const method = move.method || 'unknown';
         if (grouped[method]) {
@@ -131,90 +132,137 @@ function EVDistribution({ savedPokemon, addToTeam }) {
   const handleSaveMoves = (moves) => {
     setSelectedMoves(moves);
   };
-
-  // Enhanced addToTeam function that includes selected moves
-  const addToTeamWithMoves = (pokemon) => {
-    if (addToTeam) {
-      // Add selected moves to the pokemon object before adding to team
-      const pokemonWithSelectedMoves = {
-        ...pokemon,
-        selectedMoves: selectedMoves // Use the selected moves from EVDistribution state
-      };
-      addToTeam(pokemonWithSelectedMoves);
-    }
+  
+  // Handler for when a Pokemon is selected from the search
+  const handlePokemonSelected = (pokemon) => {
+    setSavedPokemon(pokemon);
+    setShowSearch(false);
+    // Reset EVs and IVs when a new Pokemon is selected
+    setEvs({
+      hp: 0,
+      attack: 0,
+      defense: 0,
+      spAttack: 0,
+      spDefense: 0,
+      speed: 0,
+    });
+    setIvs({
+      hp: 0,
+      attack: 0,
+      defense: 0,
+      spAttack: 0,
+      spDefense: 0,
+      speed: 0,
+    });
+    setSelectedMoves([]);
   };
 
   return (
-    <div
-      className="ev-container"
-    >
-      <div
-        className="ev-iv-column"
-      >
-        {/* 
-          * EV Distribution Form
-          ? Replaced with <EVForm /> component
-        */}
-        <EVForm
-          evs={evs}
-          setEvs={setEvs}
-          region={region}
-          setRegion={setRegion}
-          showPopup={showPopup}
-          togglePopup={utils.togglePopup}
-          recomendations={recomendations}
-          getRecommendations={utils.getRecommendations}
-          maxEV={maxEV}
-          handleChange={utils.handleChange}
-        />
+    
+    <div className="ev-container">
+      
+      {showSearch ? (
+        <div style={{ 
+          padding: '20px', 
+          maxWidth: '800px', 
+          margin: '0 auto', 
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Select a Pokémon</h2>
+          <PokemonSearch 
+            setSavedPokemon={handlePokemonSelected} 
+            disableAutocomplete={false}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="ev-form-container">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop:'10px', marginBottom: '10px' }}>
+              
+              <button 
+                onClick={() => setShowSearch(true)} 
+                style={{                  
+                  padding: '8px 12px',
+                  backgroundColor: '#3498DB',
+                  color: 'white',
+                  border: '1px solid #2980B9', // Opcional, para que el botón tenga "cuadro"
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  boxShadow: '0 0 5px rgba(0,0,0,0.2)' // Opcional, para dar sensación de cuadro
+                }}
+              >
+                Change Pokémon
+              </button>
+            </div>
 
-        {/* 
-          * IV Distribution Form
-          ? Replaced with <IVForm /> component
-        */}
-        <IVForm
-          ivs={ivs}
-          setIvs={setIvs}
-          maxIV={maxIV}
-          handleChange={utils.handleChange}
-        />
-      </div>
+            {/* 
+              * EV Distribution Form
+              ? Replaced with <EVForm /> component
+            */}
+            <EVForm
+              evs={evs}
+              setEvs={setEvs}
+              region={region}
+              setRegion={setRegion}
+              showPopup={showPopup}
+              togglePopup={utils.togglePopup}
+              recomendations={recomendations}
+              getRecommendations={utils.getRecommendations}
+              maxEV={maxEV}
+              handleChange={utils.handleChange}
+            />
 
-      {savedPokemon && (
-        /* 
-          * Saved Pokémon Information
-          ? Replaced with <PokemonInfo /> component
-        */
-        <PokemonInfo
-          savedPokemon={savedPokemon}
-          addToTeam={addToTeamWithMoves}
-          level={level}
-          setLevel={setLevel}
-          nature={nature}
-          setNature={setNature}
-          natureMultipliers={natureMultipliers}
-          statMapping={statMapping}
-          ivs={ivs}
-          evs={evs}
-          calculateHP={utils.calculateHP}
-          calculateStat={utils.calculateStat}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          groupMovesByMethod={utils.groupMovesByMethod}
-          getNatureLabel={utils.getNatureLabel}
-          onSaveMoves={handleSaveMoves}
-        />
-      )}
+            {/* 
+              * IV Distribution Form
+              ? Replaced with <IVForm /> component
+            */}
+            <IVForm
+              ivs={ivs}
+              setIvs={setIvs}
+              maxIV={maxIV}
+              handleChange={utils.handleChange}
+            />
+          </div>
 
-      {/* 
-        * Recommendation Popup
-        ? Rendered as <RecommendationPopup /> component
-      */}
-      {showPopup && (
-        <RecommendationPopup
-          getRecommendations={utils.getRecommendations}
-          togglePopup={utils.togglePopup}
-        />
+          {savedPokemon && (
+            /* 
+              * Saved Pokémon Information
+              ? Replaced with <PokemonInfo /> component
+            */
+            <PokemonInfo
+              savedPokemon={savedPokemon}
+              level={level}
+              setLevel={setLevel}
+              nature={nature}
+              setNature={setNature}
+              natureMultipliers={natureMultipliers}
+              statMapping={statMapping}
+              ivs={ivs}
+              evs={evs}
+              calculateHP={utils.calculateHP}
+              calculateStat={utils.calculateStat}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              groupMovesByMethod={utils.groupMovesByMethod}
+              getNatureLabel={utils.getNatureLabel}
+              onSaveMoves={handleSaveMoves}
+            />
+          )}
+
+          {/* 
+            * Recommendation Popup
+            ? Rendered as <RecommendationPopup /> component
+          */}
+          {showPopup && (
+            <RecommendationPopup
+              getRecommendations={utils.getRecommendations}
+              togglePopup={utils.togglePopup}
+            />
+          )}
+        </>
       )}
     </div>
   );

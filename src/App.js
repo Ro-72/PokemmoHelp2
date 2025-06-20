@@ -6,6 +6,7 @@ import PokemonSearch from './pages/PokemonSearch';
 import BerriesPage from './pages/BerriesPage';
 import PokemonRoles from './pages/PokemonRoles';
 import TeamBuilder from './pages/TeamBuilder';
+import { PokemonProvider } from './context/PokemonContext';
 
 // Lista de bayas de ejemplo (puedes expandirla o cargarla de un JSON)
 const berriesList = [
@@ -23,7 +24,6 @@ function AppWrapper() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [workEnv, setWorkEnv] = useState('evs'); // 'evs' | 'berries' | 'roles' | 'teambuilder'
   const [darkMode, setDarkMode] = useState(true);
-  const [team, setTeam] = useState(Array(6).fill(null)); // Shared team state
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -32,23 +32,6 @@ function AppWrapper() {
     setSavedPokemon(pokemon);
     if (workEnv !== 'evs') {
       setWorkEnv('evs');
-    }
-  };
-
-  // Add Pokemon to team
-  const addToTeam = (pokemon) => {
-    const emptySlotIndex = team.findIndex(slot => slot === null);
-    if (emptySlotIndex !== -1) {
-      const newTeam = [...team];
-      newTeam[emptySlotIndex] = pokemon;
-      setTeam(newTeam);
-      alert(`${pokemon.name} added to team slot ${emptySlotIndex + 1}!`);
-      
-      // Switch to team builder environment
-      setWorkEnv('teambuilder');
-      navigate('/team-builder');
-    } else {
-      alert('Team is full! Remove a Pokemon first.');
     }
   };
 
@@ -236,13 +219,13 @@ function AppWrapper() {
         {workEnv === 'evs' && (
           <nav>
             <Link to="/ev-distribution" className="App-link">Distribución de EVs</Link>
-            <Link
+{/*             <Link
               to="#"
               className="App-link"
               onClick={() => setShowPokemonSearch(true)}
             >
               Buscar Pokémon
-            </Link>
+            </Link> */}
           </nav>
         )}
         {workEnv === 'berries' && (
@@ -265,8 +248,8 @@ function AppWrapper() {
       <main>
         {workEnv === 'evs' ? (
           <Routes>
-            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
-            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} addToTeam={addToTeam} />} />
+            <Route path="/ev-distribution" element={<EVDistribution savedPokemon={savedPokemon} />} />
+            <Route path="*" element={<EVDistribution savedPokemon={savedPokemon} />} />
           </Routes>
         ) : workEnv === 'berries' ? (
           <Routes>
@@ -275,13 +258,13 @@ function AppWrapper() {
           </Routes>
         ) : workEnv === 'teambuilder' ? (
           <Routes>
-            <Route path="/team-builder" element={<TeamBuilder team={team} setTeam={setTeam} />} />
-            <Route path="*" element={<TeamBuilder team={team} setTeam={setTeam} />} />
+            <Route path="/team-builder" element={<TeamBuilder />} />
+            <Route path="*" element={<TeamBuilder />} />
           </Routes>
         ) : (
           <Routes>
-            <Route path="/pokemon-roles" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} addToTeam={addToTeam} />} />
-            <Route path="*" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} addToTeam={addToTeam} />} />
+            <Route path="/pokemon-roles" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
+            <Route path="*" element={<PokemonRoles setSavedPokemon={handleSetSavedPokemon} />} />
           </Routes>
         )}
       </main>
@@ -312,7 +295,6 @@ function AppWrapper() {
             </button>
             <PokemonSearch
               setSavedPokemon={handleSetSavedPokemon}
-              addToTeam={addToTeam}
               disableAutocomplete={false}
               onClose={() => setShowPokemonSearch(false)}
             />
@@ -335,11 +317,13 @@ function AppWrapper() {
   );
 }
 
-// Necesario para usar useNavigate en el componente principal
+// Update the App component to include PokemonProvider
 function App() {
   return (
     <Router>
-      <AppWrapper />
+      <PokemonProvider>
+        <AppWrapper />
+      </PokemonProvider>
     </Router>
   );
 }

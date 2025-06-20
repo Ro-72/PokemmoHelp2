@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import itemsData from '../items.mock.data.json';
+import { usePokemonContext } from '../context/PokemonContext';
+import { useNavigate } from 'react-router-dom';
 
 function PokemonInfo({
   savedPokemon,
-  addToTeam,
   level,
   setLevel,
   nature,
@@ -19,9 +20,25 @@ function PokemonInfo({
   groupMovesByMethod,
   getNatureLabel,
   onSaveMoves,
+  item,
+  setItem,
+  isEditing
 }) {
   // Track selected moves for this Pokémon
   const [selectedMoves, setSelectedMoves] = useState(savedPokemon.selectedMoves || []);
+  const [itemSuggestions, setItemSuggestions] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
+  
+  // Use Pokemon context
+  const { addToTeam } = usePokemonContext();
+
+  // Initialize selectedMoves from props
+  useEffect(() => {
+    if (savedPokemon.selectedMoves) {
+      setSelectedMoves(savedPokemon.selectedMoves);
+    }
+  }, [savedPokemon]);
 
   // Handle move selection (max 4)
   const handleMoveSelect = (move) => {
@@ -53,19 +70,9 @@ function PokemonInfo({
     }
   };
 
-  // Save selected moves to parent (if needed)
-  const handleSaveMoves = () => {
-    if (onSaveMoves) {
-      onSaveMoves(selectedMoves);
-    }
-  };
-
-  // State for item input and suggestions
-  const [item, setItem] = useState('');
-  const [itemSuggestions, setItemSuggestions] = useState([]);
-
+  // Item suggestions
   useEffect(() => {
-    if (item.length > 0) {
+    if (item && item.length > 0) {
       const filtered = itemsData.Items.filter(i =>
         i.toLowerCase().includes(item.toLowerCase())
       ).slice(0, 5);
@@ -76,74 +83,67 @@ function PokemonInfo({
   }, [item]);
 
   const handleItemSuggestionClick = (suggestion) => {
-    setItem(suggestion);
+    if (setItem) {
+      setItem(suggestion);
+    }
     setItemSuggestions([]);
   };
 
-  // Helper to convert stat mapping to Showdown format
-  const statShowdownMap = {
-    hp: 'HP',
-    attack: 'Atk',
-    defense: 'Def',
-    spAttack: 'SpA',
-    spDefense: 'SpD',
-    speed: 'Spe',
-  };
+  // Add the current Pokemon to the team
+  const handleAddToTeam = () => {
+    setIsSaving(true);
+    
+    // Calculate final stats
+    const calculatedStats = {};
+    savedPokemon.stats.forEach(stat => {
+      const isHP = stat.stat.name.toLowerCase() === 'hp';
+      const mappedStat = statMapping[stat.stat.name.toLowerCase()];
+      const natureMultiplier = natureMultipliers[nature][mappedStat] || 1;
+      
+      const calculatedStat = isHP
+        ? calculateHP(stat.base_stat, ivs.hp, evs.hp, level)
+        : calculateStat(
+            stat.base_stat,
+            ivs[mappedStat],
+            evs[mappedStat],
+            level,
+            natureMultiplier
+          );
+      
+      calculatedStats[mappedStat] = calculatedStat;
+    });
 
-  // Helper to convert nature to Showdown format
-  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
-
-  // Download as .txt in Showdown format
-  const handleDownloadShowdown = () => {
-    // Name and item
-    let lines = [];
-    let pokeName = capitalize(savedPokemon.name);
-    let itemLine = item ? ` @ ${item.replace(/-/g, ' ')}` : '';
-    lines.push(`${pokeName}${itemLine}`);
-
-    // Ability (not available in your data, so skip or add placeholder)
-    // lines.push(`Ability: ???`);
-
-    // Level
-    if (level) lines.push(`Level: ${level}`);
-
-    // Nature
-    if (nature && nature !== 'neutral') lines.push(`${capitalize(nature)} Nature`);
-
-    // EVs
-    const evParts = [];
-    for (const [key, val] of Object.entries(evs)) {
-      if (val > 0) evParts.push(`${val} ${statShowdownMap[key]}`);
+    // Prepare selected moves with types
+    const movesWithTypes = selectedMoves.map(move => ({
+      ...move,
+      type: moveTypes[move.name] || 'normal',
+      damageClass: moveClasses[move.name] || 'status'
+    }));
+    
+    // Create the formatted Pokemon object
+    const teamPokemon = {
+      id: savedPokemon.id,
+      name: savedPokemon.name,
+      level: level,
+      sprite: savedPokemon.sprites?.front_default,
+      nature: nature,
+      item: item,
+      types: savedPokemon.types?.map(type => type.type?.name || type) || [],
+      stats: calculatedStats,
+      evs: evs,
+      ivs: ivs,
+      selectedMoves: movesWithTypes
+    };
+    
+    // Add to team using the context
+    const success = addToTeam(teamPokemon);
+    
+    setIsSaving(false);
+    
+    if (success) {
+      // Navigate to the team builder page
+      navigate('/team-builder');
     }
-    if (evParts.length > 0) lines.push(`EVs: ${evParts.join(' / ')}`);
-
-    // IVs
-    const ivParts = [];
-    for (const [key, val] of Object.entries(ivs)) {
-      if (val < 31) ivParts.push(`${val} ${statShowdownMap[key]}`);
-    }
-    if (ivParts.length > 0) lines.push(`IVs: ${ivParts.join(' / ')}`);
-
-    // Moves
-    if (selectedMoves.length > 0) {
-      selectedMoves.forEach(move => {
-        if (move.name && move.name !== '(desconocido)') {
-          lines.push(`- ${capitalize(move.name.replace(/-/g, ' '))}`);
-        }
-      });
-    }
-
-    // Join lines and trigger download
-    const showdownText = lines.join('\n');
-    const blob = new Blob([showdownText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${pokeName}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   // --- Move type and class fetching logic ---
@@ -297,51 +297,53 @@ function PokemonInfo({
     return movesArr;
   }
 
+  // Save selected moves
+  const handleSaveMoves = () => {
+    if (onSaveMoves) {
+      onSaveMoves(selectedMoves);
+    }
+  };
+
   return (
     <div className="pokemon-info" style={{ flex: 1, border: '1px solid #ccc', padding: '10px' }}>
       <div className="pokemon-info-header">
         <div className="pokemon-basic-info">
           <h3>{savedPokemon.name}</h3>
           <p>#{savedPokemon.id}</p>
-          {addToTeam && (
+          
+          {!isEditing && (
             <button
-              onClick={() => {
-                // Convert saved Pokemon to team format with current selected moves including types
-                const movesWithTypes = selectedMoves.map(move => ({
-                  ...move,
-                  type: moveTypes[move.name] || 'normal',
-                  damageClass: moveClasses[move.name] || 'status'
-                }));
-                
-                const teamPokemon = {
-                  id: savedPokemon.id,
-                  name: savedPokemon.name,
-                  sprite: savedPokemon.sprites?.front_default,
-                  types: savedPokemon.types?.map(type => type.type.name) || [],
-                  selectedMoves: movesWithTypes // Use moves with types
-                };
-                addToTeam(teamPokemon);
-              }}
+              onClick={handleAddToTeam}
+              disabled={isSaving || selectedMoves.length === 0}
               style={{
-                backgroundColor: '#3498DB',
+                backgroundColor: isSaving || selectedMoves.length === 0 ? '#CCCCCC' : '#3498DB',
                 color: 'white',
                 border: 'none',
                 borderRadius: '5px',
                 padding: '8px 12px',
                 fontSize: '12px',
-                cursor: 'pointer',
+                cursor: isSaving || selectedMoves.length === 0 ? 'not-allowed' : 'pointer',
                 marginTop: '10px',
                 fontWeight: 'bold'
               }}
             >
-              Add to Team
+              {isSaving ? 'Adding...' : 'Add to Team'}
             </button>
           )}
         </div>
       </div>
-      <img src={savedPokemon.sprites.front_default} alt={savedPokemon.name} />
+      
+      {/* Pokemon sprite */}
+      <img 
+        src={savedPokemon.sprite || savedPokemon.sprites?.front_default} 
+        alt={savedPokemon.name}
+        style={{ maxWidth: '100px', height: 'auto' }}
+      />
+      
       <p><strong>Nombre:</strong> {savedPokemon.name}</p>
       <p><strong>ID:</strong> {savedPokemon.id}</p>
+      
+      {/* Level input */}
       <div style={{ marginBottom: '10px' }}>
         <label htmlFor="level">Nivel:</label>
         <input
@@ -354,6 +356,8 @@ function PokemonInfo({
           style={{ marginLeft: '10px', width: '50px' }}
         />
       </div>
+      
+      {/* Nature select */}
       <div style={{ marginBottom: '10px' }}>
         <label htmlFor="nature">Naturaleza:</label>
         <select
@@ -369,15 +373,16 @@ function PokemonInfo({
           ))}
         </select>
       </div>
-      {/* New Item input with autocomplete */}
+      
+      {/* Item input */}
       <div style={{ marginBottom: '10px', position: 'relative' }}>
         <label htmlFor="item">Objeto:</label>
         <input
           id="item"
           type="text"
           placeholder="Buscar objeto"
-          value={item}
-          onChange={e => setItem(e.target.value)}
+          value={item || ''}
+          onChange={e => setItem && setItem(e.target.value)}
           style={{ marginLeft: '10px', width: '150px' }}
           autoComplete="off"
         />
@@ -392,7 +397,9 @@ function PokemonInfo({
               padding: '0 5px',
               width: '150px',
               zIndex: 10,
-              fontSize: '12px'
+              fontSize: '12px',
+              maxHeight: '150px',
+              overflowY: 'auto'
             }}
           >
             {itemSuggestions.map((suggestion, idx) => (
@@ -407,17 +414,20 @@ function PokemonInfo({
           </ul>
         )}
       </div>
+      
+      {/* Stats display */}
       <div>
         <h4>Estadísticas:</h4>
-        {savedPokemon.stats.map((stat, index) => {
-          const isHP = stat.stat.name.toLowerCase() === 'hp';
-          const mappedStat = statMapping[stat.stat.name.toLowerCase()];
+        {savedPokemon.stats?.map((stat, index) => {
+          const isHP = stat.stat?.name.toLowerCase() === 'hp';
+          const mappedStat = statMapping[stat.stat?.name.toLowerCase() || ''];
           const natureMultiplier =
             natureMultipliers[nature][mappedStat] || 1;
+          const baseStat = stat.base_stat || (stat.stat?.name ? savedPokemon.baseStats?.[stat.stat.name] : 0) || 0;  
           const calculatedStat = isHP
-            ? calculateHP(stat.base_stat, ivs.hp, evs.hp, level)
+            ? calculateHP(baseStat, ivs.hp, evs.hp, level)
             : calculateStat(
-                stat.base_stat,
+                baseStat,
                 ivs[mappedStat],
                 evs[mappedStat],
                 level,
@@ -425,7 +435,7 @@ function PokemonInfo({
               );
           return (
             <div key={index} style={{ marginBottom: '10px' }}>
-              <strong>{stat.stat.name.toUpperCase()}:</strong>
+              <strong>{stat.stat?.name.toUpperCase() || mappedStat.toUpperCase()}:</strong>
               <div style={{ background: '#ddd', width: '100%', height: '10px', position: 'relative' }}>
                 <div
                   style={{
@@ -440,6 +450,7 @@ function PokemonInfo({
           );
         })}
       </div>
+
       {savedPokemon.strategyUrl && (
         <div style={{ marginTop: '10px' }}>
           <h4>Enlace a Estrategia:</h4>
@@ -591,7 +602,7 @@ function PokemonInfo({
           </form>
           <button
             style={{ marginTop: '10px', padding: '5px 10px' }}
-            onClick={handleDownloadShowdown}
+            onClick={handleSaveMoves}
             type="button"
             disabled={selectedMoves.length === 0}
           >
@@ -607,6 +618,11 @@ function PokemonInfo({
               </ul>
             </div>
           )}
+        </div>
+      )}
+      {!isEditing && selectedMoves.length === 0 && (
+        <div style={{ marginTop: '15px', color: 'red', fontStyle: 'italic' }}>
+          Please select at least one move to add this Pokémon to your team.
         </div>
       )}
     </div>
