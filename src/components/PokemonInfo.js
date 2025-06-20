@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import itemsData from '../items.mock.data.json';
 import { usePokemonContext } from '../context/PokemonContext';
 import { useNavigate } from 'react-router-dom';
@@ -32,9 +32,15 @@ function PokemonInfo({
   const navigate = useNavigate();
   
   // Use Pokemon context
-  const { addToTeam } = usePokemonContext();  // Initialize selectedMoves from props and fetch their types
+  const { addToTeam } = usePokemonContext();  // Create ref outside of the effect
+  const hasInitialized = useRef(false);
+  
+  // Initialize selectedMoves from props and fetch their types - only runs once on initial render
   useEffect(() => {
-    if (savedPokemon.selectedMoves && savedPokemon.selectedMoves.length > 0) {
+    if (!hasInitialized.current && savedPokemon.selectedMoves && savedPokemon.selectedMoves.length > 0) {
+      console.log('Initializing selected moves from props:', savedPokemon.selectedMoves.length);
+      hasInitialized.current = true;
+      
       // Set the selected moves
       setSelectedMoves(savedPokemon.selectedMoves);
       
@@ -58,11 +64,6 @@ function PokemonInfo({
       
       if (Object.keys(newMoveClasses).length > 0) {
         setMoveClasses(prev => ({ ...prev, ...newMoveClasses }));
-      }
-      
-      // Notify parent component
-      if (onSaveMoves) {
-        onSaveMoves(savedPokemon.selectedMoves);
       }
       
       // When editing, make sure to automatically show the tab that has the most selected moves
@@ -98,7 +99,12 @@ function PokemonInfo({
         }
       }
     }
-  }, [savedPokemon, onSaveMoves, isEditing, setActiveTab]);
+    
+    // Return cleanup function to set flag when unmounting
+    return () => {
+      hasInitialized.current = false;
+    };
+  }, []);
     // Re-render stats when IVs, EVs, level or nature changes
   useEffect(() => {
     // This will force the component to re-render stats when these props change
@@ -156,23 +162,28 @@ function PokemonInfo({
       fetchPokemonData();
     }
   }, [savedPokemon?.id]);
-
   // Handle move selection (max 4)
   const handleMoveSelect = (move) => {
+    console.log('Move selection:', move.name, isEditing ? '(editing mode)' : '');
+    
     const exists = selectedMoves.some(
       (m) => m.name === move.name && m.method === move.method && m.level === move.level
     );
+    
     if (exists) {
+      // Remove the move if it already exists
       const newSelectedMoves = selectedMoves.filter(
         (m) => !(m.name === move.name && m.method === move.method && m.level === move.level)
       );
       setSelectedMoves(newSelectedMoves);
-      // Immediately notify parent of the change
-      if (onSaveMoves) {
+      
+      // Only notify parent component in non-editing mode
+      // In editing mode, wait for explicit save
+      if (onSaveMoves && !isEditing) {
         onSaveMoves(newSelectedMoves);
       }
     } else if (selectedMoves.length < 4) {
-      // Include move type from fetched data when adding to selected moves
+      // Add the move if we have less than 4 moves
       const moveWithType = {
         ...move,
         type: moveTypes[move.name] || 'normal', // Add the fetched type
@@ -180,8 +191,10 @@ function PokemonInfo({
       };
       const newSelectedMoves = [...selectedMoves, moveWithType];
       setSelectedMoves(newSelectedMoves);
-      // Immediately notify parent of the change
-      if (onSaveMoves) {
+      
+      // Only notify parent component in non-editing mode
+      // In editing mode, wait for explicit save
+      if (onSaveMoves && !isEditing) {
         onSaveMoves(newSelectedMoves);
       }
     }
@@ -450,10 +463,10 @@ function PokemonInfo({
     }
     return movesArr;
   }
-
   // Save selected moves
   const handleSaveMoves = () => {
     if (onSaveMoves) {
+      console.log('Saving selected moves:', selectedMoves.length);
       onSaveMoves(selectedMoves);
     }
   };

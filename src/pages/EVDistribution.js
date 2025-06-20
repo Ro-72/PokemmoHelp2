@@ -190,10 +190,11 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
 
     calculateHP: (base, iv, ev, level) => {
       return Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + level + 10;
-    },
-    calculateStat: (base, iv, ev, level, natureMultiplier) => {
+    },    calculateStat: (base, iv, ev, level, natureMultiplier) => {
       return Math.floor(((((2 * base + iv + Math.floor(ev / 4)) * level) / 100) + 5) * natureMultiplier);
-    },    // Save changes to team when editing
+    },
+    
+    // Save changes to team when editing
     saveChanges: async () => {
       if (isEditing && slotIndex !== undefined && savedPokemon) {
         // Check if we need to fetch Pokemon data from API
@@ -340,10 +341,15 @@ function EVDistribution({ savedPokemon: initialPokemon }) {
       return `${natureKey.charAt(0).toUpperCase() + natureKey.slice(1)} (Neutral)`;
     }
   };
-
   // Handler to receive selected moves from PokemonInfo
   const handleSaveMoves = (moves) => {
-    setSelectedMoves(moves);
+    console.log(`handleSaveMoves called with ${moves.length} moves. isEditing: ${isEditing}`);
+    
+    // In editing mode, only update selected moves when explicitly called from the Save button
+    // This prevents accidental updates during checkbox toggling
+    if (!isEditing || !selectedMoves.length) {
+      setSelectedMoves(moves);
+    }
   };
   
   // Handler for when a Pokemon is selected from the search
